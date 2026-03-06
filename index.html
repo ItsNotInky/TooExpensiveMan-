@@ -623,17 +623,18 @@ h3{font-size:15px;font-weight:600;color:var(--text-1)}
 }
 .bottom-nav-items{display:flex;justify-content:space-around}
 .bottom-nav-item{
-  display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:6px 12px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:6px 6px;
   cursor:pointer;color:var(--text-3);
   border-radius:var(--radius-sm);
   transition:color var(--transition);
   position:relative;
-  min-width:56px;
+  min-width:44px;
+  flex:1;
 }
 .bottom-nav-item.active{color:var(--accent)}
-.bottom-nav-item .nav-icon{font-size:22px}
-.bottom-nav-label{font-size:10px;font-weight:600;letter-spacing:0.03em}
+.bottom-nav-item .nav-icon{font-size:20px}
+.bottom-nav-label{font-size:9px;font-weight:600;letter-spacing:0.03em}
 .bottom-badge{
   position:absolute;top:4px;right:8px;
   background:var(--danger);color:#fff;
@@ -1011,6 +1012,10 @@ h3{font-size:15px;font-weight:600;color:var(--text-1)}
     <div class="bottom-nav-item" data-view="scan">
       <span class="nav-icon">📷</span>
       <span class="bottom-nav-label">Scan</span>
+    </div>
+    <div class="bottom-nav-item" data-view="settings">
+      <span class="nav-icon">⚙️</span>
+      <span class="bottom-nav-label">Settings</span>
     </div>
   </div>
 </nav>
