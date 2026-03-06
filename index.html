@@ -1,0 +1,2482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PantryOS — Smart Grocery Tracker</title>
+<meta name="description" content="Smart grocery inventory tracker with expiry warnings, receipt scanning, and spending analytics.">
+<meta name="theme-color" content="#07070e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PantryOS">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+<style>
+/* ─── DESIGN TOKENS ─────────────────────────────────────────────── */
+:root {
+  --bg-0: #05050c;
+  --bg-1: #09091a;
+  --bg-2: #0e0e22;
+  --bg-3: #13132a;
+  --bg-4: #181830;
+  --border-1: #1a1a35;
+  --border-2: #22224a;
+  --border-3: #2a2a5a;
+  --accent: #00d4b1;
+  --accent-bright: #00ffdd;
+  --accent-dim: rgba(0,212,177,0.12);
+  --accent-glow: rgba(0,212,177,0.25);
+  --purple: #7c6af7;
+  --purple-dim: rgba(124,106,247,0.15);
+  --warning: #ff9f0a;
+  --warning-dim: rgba(255,159,10,0.15);
+  --danger: #ff453a;
+  --danger-dim: rgba(255,69,58,0.15);
+  --success: #32d74b;
+  --success-dim: rgba(50,215,75,0.15);
+  --text-1: #e8e8f8;
+  --text-2: #9898c0;
+  --text-3: #505078;
+  --font-ui: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 18px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 48px rgba(0,0,0,0.7);
+  --transition: 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ─── RESET & BASE ──────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;overflow-x:hidden;scroll-behavior:smooth}
+body{
+  min-height:100%;
+  background:var(--bg-0);
+  color:var(--text-1);
+  font-family:var(--font-ui);
+  font-size:15px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow-x:hidden;
+}
+body::before{
+  content:'';
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(0,212,177,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(124,106,247,0.06) 0%, transparent 60%);
+  pointer-events:none;
+  z-index:0;
+}
+#app{position:relative;z-index:1;display:flex;min-height:100vh}
+
+/* ─── SCROLLBAR ─────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg-1)}
+::-webkit-scrollbar-thumb{background:var(--border-3);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-3)}
+
+/* ─── SIDEBAR ───────────────────────────────────────────────────── */
+#sidebar{
+  width:68px;
+  min-height:100vh;
+  background:var(--bg-1);
+  border-right:1px solid var(--border-1);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:20px 0;
+  position:fixed;
+  top:0;left:0;bottom:0;
+  z-index:100;
+  transition:width var(--transition);
+}
+#sidebar:hover{width:220px}
+.sidebar-logo{
+  width:40px;height:40px;
+  background:linear-gradient(135deg, var(--accent), var(--purple));
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;
+  margin-bottom:32px;
+  flex-shrink:0;
+  box-shadow:0 0 20px var(--accent-glow);
+}
+.nav-item{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:12px 14px;
+  cursor:pointer;
+  border-radius:0;
+  color:var(--text-3);
+  transition:color var(--transition), background var(--transition);
+  position:relative;
+  text-decoration:none;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.nav-item:hover{color:var(--text-1);background:var(--bg-3)}
+.nav-item.active{color:var(--accent)}
+.nav-item.active::before{
+  content:'';
+  position:absolute;
+  left:0;top:20%;bottom:20%;
+  width:3px;
+  background:var(--accent);
+  border-radius:0 2px 2px 0;
+  box-shadow:0 0 8px var(--accent);
+}
+.nav-icon{font-size:20px;flex-shrink:0;width:28px;text-align:center}
+.nav-label{
+  font-size:13px;font-weight:600;letter-spacing:0.04em;
+  opacity:0;transition:opacity var(--transition);
+}
+#sidebar:hover .nav-label{opacity:1}
+.nav-badge{
+  margin-left:auto;
+  background:var(--danger);
+  color:#fff;
+  font-size:10px;font-family:var(--font-mono);
+  padding:1px 6px;
+  border-radius:100px;
+  flex-shrink:0;
+  opacity:0;
+  transition:opacity var(--transition);
+}
+#sidebar:hover .nav-badge{opacity:1}
+.nav-badge.hidden{display:none}
+.sidebar-spacer{flex:1}
+.sidebar-bottom{width:100%;display:flex;flex-direction:column;align-items:center;gap:4px}
+
+/* ─── MAIN CONTENT ──────────────────────────────────────────────── */
+#main{
+  flex:1;
+  margin-left:68px;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+.view{display:none;flex:1;padding:32px 36px;animation:fadeIn 0.25s ease}
+.view.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── TYPOGRAPHY ────────────────────────────────────────────────── */
+h1{font-size:28px;font-weight:800;letter-spacing:-0.02em;color:var(--text-1)}
+h2{font-size:20px;font-weight:700;letter-spacing:-0.01em;color:var(--text-1)}
+h3{font-size:15px;font-weight:600;color:var(--text-1)}
+.mono{font-family:var(--font-mono)}
+.page-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:32px;flex-wrap:wrap;gap:12px;
+}
+.page-title{display:flex;flex-direction:column;gap:4px}
+.page-title h1{line-height:1.1}
+.page-subtitle{font-size:13px;color:var(--text-3);font-family:var(--font-mono)}
+
+/* ─── CARDS ─────────────────────────────────────────────────────── */
+.card{
+  background:var(--bg-1);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius);
+  padding:24px;
+  transition:border-color var(--transition);
+}
+.card:hover{border-color:var(--border-2)}
+.card-sm{padding:16px}
+
+/* ─── STAT CARDS ─────────────────────────────────────────────────── */
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:16px;
+  margin-bottom:28px;
+}
+.stat-card{
+  background:var(--bg-1);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius);
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+  transition:transform var(--transition), border-color var(--transition);
+}
+.stat-card:hover{transform:translateY(-2px);border-color:var(--border-2)}
+.stat-card::after{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg, transparent, var(--card-accent, var(--accent)), transparent);
+  opacity:0.6;
+}
+.stat-card.warning{--card-accent:var(--warning)}
+.stat-card.danger{--card-accent:var(--danger)}
+.stat-card.success{--card-accent:var(--success)}
+.stat-card.purple{--card-accent:var(--purple)}
+.stat-label{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px}
+.stat-value{font-size:32px;font-weight:800;font-family:var(--font-mono);color:var(--text-1);line-height:1}
+.stat-meta{font-size:12px;color:var(--text-3);margin-top:6px;font-family:var(--font-mono)}
+
+/* ─── BUTTONS ────────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:10px 18px;
+  border:none;border-radius:var(--radius-sm);
+  font-family:var(--font-ui);font-size:13px;font-weight:600;
+  cursor:pointer;
+  transition:all var(--transition);
+  white-space:nowrap;
+  letter-spacing:0.02em;
+  outline:none;
+}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-primary{background:var(--accent);color:#07070c}
+.btn-primary:hover{background:var(--accent-bright);box-shadow:0 0 20px var(--accent-glow)}
+.btn-primary:active{transform:scale(0.97)}
+.btn-ghost{background:transparent;color:var(--text-2);border:1px solid var(--border-2)}
+.btn-ghost:hover{background:var(--bg-3);color:var(--text-1);border-color:var(--border-3)}
+.btn-danger{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(255,69,58,0.3)}
+.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-warning{background:var(--warning-dim);color:var(--warning);border:1px solid rgba(255,159,10,0.3)}
+.btn-icon{padding:8px;border-radius:var(--radius-sm)}
+.btn-sm{padding:7px 13px;font-size:12px}
+.btn-lg{padding:13px 24px;font-size:15px;border-radius:var(--radius)}
+
+/* ─── INPUTS ─────────────────────────────────────────────────────── */
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-3)}
+.input,.select,.textarea{
+  background:var(--bg-2);
+  border:1px solid var(--border-2);
+  border-radius:var(--radius-sm);
+  color:var(--text-1);
+  font-family:var(--font-ui);
+  font-size:14px;
+  padding:10px 14px;
+  width:100%;
+  transition:border-color var(--transition), box-shadow var(--transition);
+  outline:none;
+}
+.input:focus,.select:focus,.textarea:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-dim);
+}
+.input::placeholder{color:var(--text-3)}
+.input.error{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-dim)}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23505078' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+.select option{background:var(--bg-2);color:var(--text-1)}
+.textarea{resize:vertical;min-height:80px}
+.form-error{font-size:12px;color:var(--danger);font-family:var(--font-mono);margin-top:2px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+
+/* ─── MODAL ──────────────────────────────────────────────────────── */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(5,5,12,0.85);
+  backdrop-filter:blur(6px);
+  z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.22s ease;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--bg-2);
+  border:1px solid var(--border-2);
+  border-radius:var(--radius-lg);
+  padding:32px;
+  width:100%;max-width:560px;
+  max-height:90vh;overflow-y:auto;
+  transform:scale(0.95) translateY(10px);
+  transition:transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow:var(--shadow-lg);
+}
+.modal-overlay.open .modal{transform:scale(1) translateY(0)}
+.modal-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
+.modal-title{font-size:20px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:22px;line-height:1;padding:4px;border-radius:6px;transition:color var(--transition),background var(--transition)}
+.modal-close:hover{color:var(--text-1);background:var(--bg-3)}
+.modal-footer{display:flex;gap:12px;justify-content:flex-end;margin-top:24px;padding-top:24px;border-top:1px solid var(--border-1)}
+
+/* ─── INVENTORY TABLE ────────────────────────────────────────────── */
+.inventory-controls{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:20px;flex-wrap:wrap;
+}
+.search-wrap{position:relative;flex:1;min-width:180px}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none}
+.search-wrap .input{padding-left:38px}
+.filter-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.chip{
+  padding:5px 12px;
+  border:1px solid var(--border-2);
+  border-radius:100px;
+  font-size:12px;font-weight:600;
+  cursor:pointer;
+  color:var(--text-2);
+  background:transparent;
+  transition:all var(--transition);
+}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+
+.item-list{display:flex;flex-direction:column;gap:10px}
+.item-card{
+  background:var(--bg-1);
+  border:1px solid var(--border-1);
+  border-radius:var(--radius);
+  padding:16px 20px;
+  display:flex;align-items:center;gap:16px;
+  transition:all var(--transition);
+  position:relative;
+  overflow:hidden;
+}
+.item-card:hover{border-color:var(--border-2);background:var(--bg-2)}
+.item-card.expiring-soon{border-left:3px solid var(--warning)}
+.item-card.expiring-today{border-left:3px solid var(--danger);background:rgba(255,69,58,0.04)}
+.item-card.expired{border-left:3px solid var(--text-3);opacity:0.6}
+.item-emoji{font-size:24px;width:36px;text-align:center;flex-shrink:0}
+.item-info{flex:1;min-width:0}
+.item-name{font-size:14px;font-weight:600;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-meta{display:flex;align-items:center;gap:10px;margin-top:3px;flex-wrap:wrap}
+.item-tag{
+  font-size:11px;font-family:var(--font-mono);
+  color:var(--text-3);
+  background:var(--bg-3);
+  padding:2px 7px;border-radius:4px;
+}
+.item-tag.category{color:var(--purple);background:var(--purple-dim)}
+.item-right{display:flex;align-items:center;gap:20px;flex-shrink:0}
+.item-price{
+  font-size:16px;font-weight:700;font-family:var(--font-mono);
+  color:var(--accent);
+}
+.expiry-badge{
+  display:flex;flex-direction:column;align-items:center;
+  min-width:60px;
+}
+.expiry-days{
+  font-size:20px;font-weight:800;font-family:var(--font-mono);
+  line-height:1;
+}
+.expiry-days.ok{color:var(--success)}
+.expiry-days.soon{color:var(--warning)}
+.expiry-days.urgent{color:var(--danger)}
+.expiry-days.expired{color:var(--text-3)}
+.expiry-label{font-size:10px;color:var(--text-3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px}
+.item-actions{display:flex;gap:6px;opacity:0;transition:opacity var(--transition)}
+.item-card:hover .item-actions{opacity:1}
+
+/* ─── EXPIRY WARNINGS PANEL ──────────────────────────────────────── */
+.warnings-panel{
+  background:var(--bg-1);
+  border:1px solid rgba(255,159,10,0.3);
+  border-radius:var(--radius);
+  padding:20px;
+  margin-bottom:28px;
+}
+.warnings-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.pulse-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--warning);
+  box-shadow:0 0 0 0 var(--warning);
+  animation:pulse 2s infinite;
+  flex-shrink:0;
+}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(255,159,10,0.6)}
+  70%{box-shadow:0 0 0 8px rgba(255,159,10,0)}
+  100%{box-shadow:0 0 0 0 rgba(255,159,10,0)}
+}
+.pulse-dot.danger{background:var(--danger);animation-name:pulse-danger}
+@keyframes pulse-danger{
+  0%{box-shadow:0 0 0 0 rgba(255,69,58,0.6)}
+  70%{box-shadow:0 0 0 8px rgba(255,69,58,0)}
+  100%{box-shadow:0 0 0 0 rgba(255,69,58,0)}
+}
+.warning-items{display:flex;flex-direction:column;gap:8px}
+.warning-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;
+  background:var(--bg-2);
+  border-radius:var(--radius-sm);
+  font-size:13px;
+}
+.warning-item.critical{background:rgba(255,69,58,0.08);border:1px solid rgba(255,69,58,0.2)}
+
+/* ─── CHARTS ─────────────────────────────────────────────────────── */
+.chart-container{
+  background:var(--bg-1);border:1px solid var(--border-1);
+  border-radius:var(--radius);padding:24px;
+  margin-bottom:24px;
+}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.chart-wrap{position:relative;height:280px}
+.period-tabs{display:flex;gap:4px;background:var(--bg-2);padding:4px;border-radius:var(--radius-sm)}
+.period-tab{
+  padding:6px 14px;
+  border:none;background:transparent;
+  color:var(--text-3);font-family:var(--font-ui);font-size:12px;font-weight:600;
+  border-radius:6px;cursor:pointer;
+  transition:all var(--transition);
+}
+.period-tab.active{background:var(--bg-4);color:var(--accent)}
+
+/* ─── SHOPPING LIST ──────────────────────────────────────────────── */
+.shopping-section{margin-bottom:28px}
+.shopping-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.shopping-items{display:flex;flex-direction:column;gap:8px}
+.shop-item{
+  display:flex;align-items:center;gap:14px;
+  padding:13px 16px;
+  background:var(--bg-1);border:1px solid var(--border-1);
+  border-radius:var(--radius-sm);
+  transition:all var(--transition);
+}
+.shop-item.checked{opacity:0.5}
+.shop-item.checked .shop-name{text-decoration:line-through;color:var(--text-3)}
+.shop-checkbox{
+  width:18px;height:18px;
+  border:2px solid var(--border-3);border-radius:4px;
+  cursor:pointer;flex-shrink:0;
+  transition:all var(--transition);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;
+}
+.shop-checkbox.checked{background:var(--accent);border-color:var(--accent);color:#07070c}
+.shop-name{font-size:14px;font-weight:500;flex:1}
+.shop-qty{font-size:13px;font-family:var(--font-mono);color:var(--text-3)}
+.shop-priority{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.priority-high{background:var(--danger)}
+.priority-medium{background:var(--warning)}
+.priority-low{background:var(--text-3)}
+
+/* ─── OCR / SCAN ─────────────────────────────────────────────────── */
+.scan-zone{
+  border:2px dashed var(--border-2);
+  border-radius:var(--radius-lg);
+  padding:48px 24px;
+  text-align:center;
+  cursor:pointer;
+  transition:all var(--transition);
+  position:relative;
+  overflow:hidden;
+}
+.scan-zone:hover{border-color:var(--accent);background:var(--accent-dim)}
+.scan-zone.dragging{border-color:var(--accent);background:var(--accent-dim);transform:scale(1.01)}
+.scan-icon{font-size:48px;margin-bottom:16px;display:block}
+.scan-text{color:var(--text-2);font-size:15px;font-weight:500}
+.scan-sub{color:var(--text-3);font-size:12px;margin-top:6px;font-family:var(--font-mono)}
+#scan-input{display:none}
+.ocr-progress{
+  background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius);
+  padding:20px;margin-top:20px;display:none;
+}
+.progress-bar-wrap{background:var(--bg-3);border-radius:100px;height:6px;overflow:hidden;margin:12px 0}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:100px;transition:width 0.3s ease;width:0%}
+.ocr-result{
+  background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius);
+  padding:20px;margin-top:20px;display:none;
+}
+.ocr-text-area{
+  background:var(--bg-3);border:1px solid var(--border-1);border-radius:var(--radius-sm);
+  padding:14px;margin:12px 0;
+  font-family:var(--font-mono);font-size:12px;color:var(--text-2);
+  max-height:200px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;
+}
+.extracted-items{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.extracted-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;
+  background:var(--bg-3);border-radius:var(--radius-sm);
+  font-size:13px;
+}
+.extracted-item input[type=checkbox]{accent-color:var(--accent)}
+
+/* ─── TOAST NOTIFICATIONS ────────────────────────────────────────── */
+#toast-container{
+  position:fixed;bottom:24px;right:24px;
+  z-index:9999;
+  display:flex;flex-direction:column;gap:10px;
+  pointer-events:none;
+}
+.toast{
+  background:var(--bg-3);
+  border:1px solid var(--border-2);
+  border-radius:var(--radius);
+  padding:14px 18px;
+  min-width:280px;max-width:380px;
+  display:flex;align-items:flex-start;gap:12px;
+  box-shadow:var(--shadow);
+  pointer-events:all;
+  animation:slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  font-size:13px;
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.toast.removing{animation:slideDown 0.25s ease forwards}
+@keyframes slideDown{to{opacity:0;transform:translateY(10px) scale(0.95)}}
+.toast-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.toast-body{flex:1}
+.toast-title{font-weight:600;margin-bottom:2px}
+.toast-msg{color:var(--text-2);font-size:12px}
+.toast-close{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:16px;padding:0;line-height:1;flex-shrink:0}
+.toast-close:hover{color:var(--text-1)}
+.toast.success .toast-icon{color:var(--success)}
+.toast.error .toast-icon{color:var(--danger)}
+.toast.warning .toast-icon{color:var(--warning)}
+.toast.info .toast-icon{color:var(--accent)}
+
+/* ─── SETTINGS ───────────────────────────────────────────────────── */
+.settings-section{margin-bottom:32px}
+.settings-section-title{
+  font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:16px;
+  padding-bottom:8px;border-bottom:1px solid var(--border-1);
+}
+.setting-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 0;
+  border-bottom:1px solid var(--border-1);
+  gap:16px;
+}
+.setting-info h3{font-size:14px;font-weight:600}
+.setting-info p{font-size:12px;color:var(--text-3);margin-top:2px}
+.toggle{
+  width:44px;height:24px;
+  background:var(--bg-3);
+  border:1px solid var(--border-2);
+  border-radius:100px;
+  cursor:pointer;
+  position:relative;
+  transition:background var(--transition);
+  flex-shrink:0;
+}
+.toggle.on{background:var(--accent)}
+.toggle::after{
+  content:'';
+  position:absolute;
+  top:3px;left:3px;
+  width:16px;height:16px;
+  background:#fff;border-radius:50%;
+  transition:transform var(--transition);
+  box-shadow:0 1px 3px rgba(0,0,0,0.3);
+}
+.toggle.on::after{transform:translateX(20px)}
+.firebase-config{
+  background:var(--bg-2);border:1px solid var(--border-1);
+  border-radius:var(--radius);padding:20px;
+  display:flex;flex-direction:column;gap:14px;
+}
+.firebase-status{
+  display:flex;align-items:center;gap:8px;
+  font-size:13px;font-family:var(--font-mono);
+}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-3)}
+.status-dot.connected{background:var(--success);box-shadow:0 0 6px var(--success)}
+.status-dot.connecting{background:var(--warning);animation:pulse 1.5s infinite}
+
+/* ─── EMPTY STATES ───────────────────────────────────────────────── */
+.empty-state{
+  text-align:center;padding:64px 24px;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.empty-icon{font-size:56px;opacity:0.3}
+.empty-title{font-size:17px;font-weight:600;color:var(--text-2)}
+.empty-sub{font-size:13px;color:var(--text-3);max-width:280px;line-height:1.6}
+
+/* ─── LOADING ─────────────────────────────────────────────────────── */
+.spinner{
+  width:20px;height:20px;
+  border:2px solid var(--border-2);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin 0.7s linear infinite;
+  display:inline-block;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── MOBILE BOTTOM NAV ──────────────────────────────────────────── */
+#bottom-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--bg-1);
+  border-top:1px solid var(--border-1);
+  z-index:100;
+  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+}
+.bottom-nav-items{display:flex;justify-content:space-around}
+.bottom-nav-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:6px 12px;
+  cursor:pointer;color:var(--text-3);
+  border-radius:var(--radius-sm);
+  transition:color var(--transition);
+  position:relative;
+  min-width:56px;
+}
+.bottom-nav-item.active{color:var(--accent)}
+.bottom-nav-item .nav-icon{font-size:22px}
+.bottom-nav-label{font-size:10px;font-weight:600;letter-spacing:0.03em}
+.bottom-badge{
+  position:absolute;top:4px;right:8px;
+  background:var(--danger);color:#fff;
+  font-size:9px;font-family:var(--font-mono);
+  padding:1px 5px;border-radius:100px;
+  min-width:16px;text-align:center;
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────────── */
+@media(max-width:768px){
+  #sidebar{display:none}
+  #bottom-nav{display:block}
+  #main{margin-left:0;padding-bottom:80px}
+  .view{padding:20px 16px}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:12px}
+  .stat-value{font-size:26px}
+  .item-right{gap:12px}
+  .item-actions{opacity:1}
+  .page-header{margin-bottom:20px}
+  h1{font-size:22px}
+  .form-grid{grid-template-columns:1fr}
+  .modal{padding:20px}
+  #toast-container{bottom:90px;right:16px;left:16px}
+  .toast{min-width:unset}
+  .chart-wrap{height:220px}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .item-card{padding:12px 14px;gap:10px}
+  .expiry-days{font-size:16px}
+}
+
+/* ─── CATEGORY COLORS ────────────────────────────────────────────── */
+.cat-produce{color:#32d74b}  .cat-dairy{color:#64d2ff}   .cat-meat{color:#ff6b6b}
+.cat-bakery{color:#ffcc02}   .cat-frozen{color:#5ac8fa}  .cat-beverages{color:#bf5af2}
+.cat-pantry{color:#ff9f0a}   .cat-snacks{color:#ff6b35}  .cat-other{color:#98989e}
+
+/* ─── DASHBOARD GRID ─────────────────────────────────────────────── */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:24px}
+.dash-grid .card{grid-column:1}
+.dash-recent{grid-column:2}
+@media(max-width:900px){.dash-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.dash-recent{grid-column:1}}
+
+/* ─── QUANTITY CONTROLS ──────────────────────────────────────────── */
+.qty-control{display:flex;align-items:center;gap:8px}
+.qty-btn{
+  width:28px;height:28px;
+  background:var(--bg-3);border:1px solid var(--border-2);
+  border-radius:6px;color:var(--text-1);
+  cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all var(--transition);
+}
+.qty-btn:hover{background:var(--accent);border-color:var(--accent);color:#07070c}
+.qty-display{font-family:var(--font-mono);font-size:14px;font-weight:600;min-width:28px;text-align:center}
+
+/* ─── TOTAL BAR ──────────────────────────────────────────────────── */
+.total-bar{
+  position:sticky;bottom:0;
+  background:var(--bg-1);border-top:1px solid var(--border-1);
+  padding:14px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  backdrop-filter:blur(12px);
+  border-radius:0 0 var(--radius) var(--radius);
+  margin-top:16px;
+}
+.total-label{font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-3)}
+.total-amount{font-size:24px;font-weight:800;font-family:var(--font-mono);color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ─── SIDEBAR ─────────────────────────────────────────────────────── -->
+<nav id="sidebar">
+  <div class="sidebar-logo">🥑</div>
+  <div class="nav-item active" data-view="dashboard">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-label">Dashboard</span>
+  </div>
+  <div class="nav-item" data-view="inventory">
+    <span class="nav-icon">📦</span>
+    <span class="nav-label">Inventory</span>
+    <span class="nav-badge hidden" id="expiry-badge-nav">0</span>
+  </div>
+  <div class="nav-item" data-view="analytics">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">Analytics</span>
+  </div>
+  <div class="nav-item" data-view="shopping">
+    <span class="nav-icon">🛒</span>
+    <span class="nav-label">Shopping</span>
+  </div>
+  <div class="nav-item" data-view="scan">
+    <span class="nav-icon">📷</span>
+    <span class="nav-label">Scan Receipt</span>
+  </div>
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-bottom">
+    <div class="nav-item" data-view="settings">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Settings</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── MAIN ──────────────────────────────────────────────────────── -->
+<main id="main">
+
+<!-- DASHBOARD -->
+<section class="view active" id="view-dashboard">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>Dashboard</h1>
+      <span class="page-subtitle mono" id="dash-date">Loading...</span>
+    </div>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Item</button>
+  </div>
+  <div id="warnings-container"></div>
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total Items</div><div class="stat-value mono" id="stat-total">0</div><div class="stat-meta" id="stat-total-meta">in pantry</div></div>
+    <div class="stat-card success"><div class="stat-label">Pantry Value</div><div class="stat-value mono" id="stat-value">$0</div><div class="stat-meta">total investment</div></div>
+    <div class="stat-card warning"><div class="stat-label">Expiring Soon</div><div class="stat-value mono" id="stat-expiring">0</div><div class="stat-meta">within 3 days</div></div>
+    <div class="stat-card danger"><div class="stat-label">Expired</div><div class="stat-value mono" id="stat-expired">0</div><div class="stat-meta">needs removal</div></div>
+  </div>
+  <div class="dash-grid">
+    <div class="card">
+      <div class="chart-header"><h3>Spending This Month</h3></div>
+      <div class="chart-wrap"><canvas id="dash-chart"></canvas></div>
+    </div>
+    <div class="card dash-recent">
+      <div class="chart-header"><h3>Recent Items</h3></div>
+      <div id="recent-items"></div>
+    </div>
+  </div>
+</section>
+
+<!-- INVENTORY -->
+<section class="view" id="view-inventory">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>Inventory</h1>
+      <span class="page-subtitle mono" id="inv-count">0 items</span>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost btn-sm" onclick="exportData()">⬇ Export</button>
+      <button class="btn btn-primary" onclick="openAddModal()">+ Add Item</button>
+    </div>
+  </div>
+  <div class="inventory-controls">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="input" type="search" id="search-input" placeholder="Search items..." oninput="filterInventory()">
+    </div>
+    <select class="select" id="sort-select" onchange="filterInventory()" style="width:160px">
+      <option value="expiry">Sort by Expiry</option>
+      <option value="name">Sort by Name</option>
+      <option value="price">Sort by Price</option>
+      <option value="date">Sort by Date Added</option>
+      <option value="category">Sort by Category</option>
+    </select>
+  </div>
+  <div class="filter-chips" id="category-filters"></div>
+  <div id="inventory-list" class="item-list"></div>
+  <div class="total-bar">
+    <span class="total-label">Total Value</span>
+    <span class="total-amount mono" id="inv-total">$0.00</span>
+  </div>
+</section>
+
+<!-- ANALYTICS -->
+<section class="view" id="view-analytics">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>Analytics</h1>
+      <span class="page-subtitle mono">Spending insights</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <input type="date" class="input" id="date-from" style="width:150px">
+      <span style="color:var(--text-3)">→</span>
+      <input type="date" class="input" id="date-to" style="width:150px">
+      <button class="btn btn-ghost btn-sm" onclick="updateCharts()">Apply</button>
+    </div>
+  </div>
+  <div class="stats-grid" id="analytics-stats"></div>
+  <div class="chart-container">
+    <div class="chart-header">
+      <h3>Expenditure Over Time</h3>
+      <div class="period-tabs">
+        <button class="period-tab active" onclick="setPeriod('7d',this)">7D</button>
+        <button class="period-tab" onclick="setPeriod('30d',this)">30D</button>
+        <button class="period-tab" onclick="setPeriod('90d',this)">3M</button>
+        <button class="period-tab" onclick="setPeriod('1y',this)">1Y</button>
+        <button class="period-tab" onclick="setPeriod('custom',this)">Custom</button>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="spending-chart"></canvas></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="chart-container" style="margin:0">
+      <div class="chart-header"><h3>By Category</h3></div>
+      <div class="chart-wrap" style="height:220px"><canvas id="category-chart"></canvas></div>
+    </div>
+    <div class="chart-container" style="margin:0">
+      <div class="chart-header"><h3>Waste Analysis</h3></div>
+      <div class="chart-wrap" style="height:220px"><canvas id="waste-chart"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- SHOPPING LIST -->
+<section class="view" id="view-shopping">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>Shopping List</h1>
+      <span class="page-subtitle mono" id="shop-count">0 items</span>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost btn-sm" onclick="clearChecked()">Clear Checked</button>
+      <button class="btn btn-ghost btn-sm" onclick="autoGenerateList()">✨ Auto-Generate</button>
+      <button class="btn btn-primary" onclick="openAddShopModal()">+ Add Item</button>
+    </div>
+  </div>
+  <div id="auto-suggest" style="margin-bottom:20px"></div>
+  <div class="shopping-items" id="shopping-list"></div>
+  <div id="shopping-empty" class="empty-state" style="display:none">
+    <div class="empty-icon">🛒</div>
+    <div class="empty-title">Your list is empty</div>
+    <div class="empty-sub">Add items manually or click Auto-Generate to add items that are running low or expired</div>
+  </div>
+  <div class="total-bar" id="shop-total-bar" style="display:none">
+    <span class="total-label">Estimated Total</span>
+    <span class="total-amount mono" id="shop-total">$0.00</span>
+  </div>
+</section>
+
+<!-- SCAN RECEIPT -->
+<section class="view" id="view-scan">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>Scan Receipt</h1>
+      <span class="page-subtitle mono">Extract items via OCR</span>
+    </div>
+  </div>
+  <div class="scan-zone" id="scan-zone" onclick="document.getElementById('scan-input').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+    <span class="scan-icon">📄</span>
+    <div class="scan-text">Drop receipt image here or click to upload</div>
+    <div class="scan-sub">Supports JPG, PNG, PDF · Max 10MB</div>
+  </div>
+  <input type="file" id="scan-input" accept="image/*,.pdf" onchange="handleScanFile(event)">
+  <div id="scan-preview" style="text-align:center;margin-top:16px;display:none">
+    <img id="scan-image-preview" style="max-height:200px;border-radius:var(--radius);border:1px solid var(--border-2)">
+  </div>
+  <div class="ocr-progress" id="ocr-progress">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="spinner"></div>
+      <span style="font-size:13px;font-weight:600" id="ocr-status">Initializing OCR engine...</span>
+    </div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="ocr-bar"></div></div>
+    <div style="font-size:11px;color:var(--text-3);font-family:var(--font-mono)" id="ocr-detail">Please wait...</div>
+  </div>
+  <div class="ocr-result" id="ocr-result">
+    <h3 style="margin-bottom:12px">Extracted Text</h3>
+    <div class="ocr-text-area" id="ocr-raw-text"></div>
+    <h3 style="margin-bottom:12px">Detected Items</h3>
+    <div id="extracted-items-list" class="extracted-items"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-primary" onclick="importSelectedItems()">Import Selected Items</button>
+      <button class="btn btn-ghost" onclick="resetScan()">Reset</button>
+    </div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section class="view" id="view-settings">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>Settings</h1>
+      <span class="page-subtitle mono">Configure PantryOS</span>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Notifications</div>
+    <div class="setting-row">
+      <div class="setting-info"><h3>Expiry Warnings</h3><p>Get alerts when items are about to expire</p></div>
+      <div class="toggle on" id="toggle-notif" onclick="toggleSetting('notif')"></div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info"><h3>Warning Threshold</h3><p>Days before expiry to trigger warning</p></div>
+      <input type="number" class="input" id="warn-days" value="3" min="1" max="30" style="width:80px" onchange="saveSettings()">
+    </div>
+    <div class="setting-row">
+      <div class="setting-info"><h3>Browser Notifications</h3><p>Enable system notifications (requires permission)</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="requestNotifPermission()">Request Permission</button>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Display</div>
+    <div class="setting-row">
+      <div class="setting-info"><h3>Currency</h3><p>Currency symbol for prices</p></div>
+      <select class="select" id="currency-select" style="width:100px" onchange="saveSettings();renderAll()">
+        <option value="$">$ USD</option>
+        <option value="€">€ EUR</option>
+        <option value="£">£ GBP</option>
+        <option value="¥">¥ JPY</option>
+        <option value="₹">₹ INR</option>
+        <option value="A$">A$ AUD</option>
+        <option value="C$">C$ CAD</option>
+        <option value="NZ$">NZ$ NZD</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info"><h3>Show Expired Items</h3><p>Keep expired items visible in inventory</p></div>
+      <div class="toggle on" id="toggle-expired" onclick="toggleSetting('showExpired')"></div>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Cloud Sync (Firebase)</div>
+    <div class="firebase-config">
+      <div class="firebase-status"><div class="status-dot" id="firebase-dot"></div><span id="firebase-status-text">Not configured</span></div>
+      <p style="font-size:12px;color:var(--text-3)">Add your Firebase config to enable cloud sync across devices. <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent)">Get free config →</a></p>
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="form-group">
+          <label class="form-label">Firebase Config JSON</label>
+          <textarea class="textarea" id="firebase-config-input" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}' rows="4"></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="initFirebase()" style="align-self:flex-start">Connect Firebase</button>
+      </div>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Data Management</div>
+    <div class="setting-row">
+      <div class="setting-info"><h3>Export All Data</h3><p>Download your grocery data as JSON</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="exportData()">⬇ Export JSON</button>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info"><h3>Import Data</h3><p>Restore from a previous export</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-input').click()">⬆ Import JSON</button>
+      <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+    <div class="setting-row">
+      <div class="setting-info"><h3>Clear All Data</h3><p>Permanently delete all grocery data</p></div>
+      <button class="btn btn-danger btn-sm" onclick="confirmClearData()">🗑 Clear All</button>
+    </div>
+  </div>
+  <div style="text-align:center;padding:24px 0;color:var(--text-3);font-family:var(--font-mono);font-size:11px">
+    PantryOS v2.0 · Open Source · <a href="https://github.com" target="_blank" style="color:var(--accent)">GitHub</a>
+  </div>
+</section>
+</main>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav id="bottom-nav">
+  <div class="bottom-nav-items">
+    <div class="bottom-nav-item active" data-view="dashboard">
+      <span class="nav-icon">🏠</span>
+      <span class="bottom-nav-label">Home</span>
+    </div>
+    <div class="bottom-nav-item" data-view="inventory">
+      <span class="nav-icon">📦</span>
+      <span class="bottom-nav-label">Pantry</span>
+      <span class="bottom-badge hidden" id="expiry-badge-bottom">0</span>
+    </div>
+    <div class="bottom-nav-item" data-view="analytics">
+      <span class="nav-icon">📊</span>
+      <span class="bottom-nav-label">Analytics</span>
+    </div>
+    <div class="bottom-nav-item" data-view="shopping">
+      <span class="nav-icon">🛒</span>
+      <span class="bottom-nav-label">Shop</span>
+    </div>
+    <div class="bottom-nav-item" data-view="scan">
+      <span class="nav-icon">📷</span>
+      <span class="bottom-nav-label">Scan</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ADD / EDIT ITEM MODAL -->
+<div class="modal-overlay" id="item-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Add Item</h2>
+      <button class="modal-close" onclick="closeModal('item-modal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Item Name *</label>
+        <input class="input" id="f-name" placeholder="e.g. Organic Milk" autocomplete="off">
+        <span class="form-error hidden" id="e-name">Name is required</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="select" id="f-category">
+          <option value="Produce">🥦 Produce</option>
+          <option value="Dairy">🥛 Dairy</option>
+          <option value="Meat">🥩 Meat</option>
+          <option value="Bakery">🍞 Bakery</option>
+          <option value="Frozen">🧊 Frozen</option>
+          <option value="Beverages">🥤 Beverages</option>
+          <option value="Pantry">🫙 Pantry</option>
+          <option value="Snacks">🍿 Snacks</option>
+          <option value="Personal Care">🧴 Personal Care</option>
+          <option value="Household">🧹 Household</option>
+          <option value="Other">📦 Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Store / Brand</label>
+        <input class="input" id="f-store" placeholder="e.g. Whole Foods">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantity *</label>
+        <div class="qty-control">
+          <button class="qty-btn" type="button" onclick="adjustQty(-1)">−</button>
+          <input class="input qty-display" id="f-qty" type="number" value="1" min="0.1" step="0.1" style="text-align:center">
+          <button class="qty-btn" type="button" onclick="adjustQty(1)">+</button>
+        </div>
+        <span class="form-error hidden" id="e-qty">Must be greater than 0</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Unit</label>
+        <select class="select" id="f-unit">
+          <option value="units">units</option>
+          <option value="kg">kg</option>
+          <option value="g">g</option>
+          <option value="L">L</option>
+          <option value="ml">ml</option>
+          <option value="lb">lb</option>
+          <option value="oz">oz</option>
+          <option value="pack">pack</option>
+          <option value="box">box</option>
+          <option value="can">can</option>
+          <option value="bottle">bottle</option>
+          <option value="bag">bag</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Price *</label>
+        <input class="input" id="f-price" type="number" placeholder="0.00" min="0" step="0.01">
+        <span class="form-error hidden" id="e-price">Enter a valid price</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Purchase Date</label>
+        <input class="input" id="f-purchase" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Expiry Date</label>
+        <input class="input" id="f-expiry" type="date">
+        <span class="form-error hidden" id="e-expiry">Expiry can't be before purchase date</span>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Notes</label>
+        <input class="input" id="f-notes" placeholder="Optional notes...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('item-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SHOPPING ITEM MODAL -->
+<div class="modal-overlay" id="shop-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">Add to Shopping List</h2>
+      <button class="modal-close" onclick="closeModal('shop-modal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Item Name *</label>
+        <input class="input" id="sf-name" placeholder="e.g. Orange Juice" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="select" id="sf-category">
+          <option value="Produce">Produce</option>
+          <option value="Dairy">Dairy</option>
+          <option value="Meat">Meat</option>
+          <option value="Bakery">Bakery</option>
+          <option value="Frozen">Frozen</option>
+          <option value="Beverages">Beverages</option>
+          <option value="Pantry">Pantry</option>
+          <option value="Snacks">Snacks</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantity</label>
+        <input class="input" id="sf-qty" type="number" value="1" min="1" step="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Est. Price</label>
+        <input class="input" id="sf-price" type="number" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select class="select" id="sf-priority">
+          <option value="high">🔴 High</option>
+          <option value="medium" selected>🟡 Medium</option>
+          <option value="low">⚪ Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('shop-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveShopItem()">Add to List</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="confirm-title">Confirm</h2>
+      <button class="modal-close" onclick="closeModal('confirm-modal')">✕</button>
+    </div>
+    <p id="confirm-msg" style="color:var(--text-2);font-size:14px"></p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- ─── SCRIPTS ──────────────────────────────────────────────────── -->
+<script>
+'use strict';
+
+// ────────────────────────────────────────────────────────────
+// CONSTANTS & CONFIG
+// ────────────────────────────────────────────────────────────
+const VERSION = '2.0.0';
+const STORAGE_KEY = 'pantryos_items';
+const SHOP_KEY = 'pantryos_shopping';
+const SETTINGS_KEY = 'pantryos_settings';
+
+const CATEGORY_EMOJI = {
+  Produce:'🥦',Dairy:'🥛',Meat:'🥩',Bakery:'🍞',Frozen:'🧊',
+  Beverages:'🥤',Pantry:'🫙',Snacks:'🍿','Personal Care':'🧴',
+  Household:'🧹',Other:'📦'
+};
+const CATEGORY_CLASS = {
+  Produce:'cat-produce',Dairy:'cat-dairy',Meat:'cat-meat',Bakery:'cat-bakery',
+  Frozen:'cat-frozen',Beverages:'cat-beverages',Pantry:'cat-pantry',Snacks:'cat-snacks',Other:'cat-other'
+};
+
+// ────────────────────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────────────────────
+let STATE = {
+  items: [],
+  shopping: [],
+  settings: {
+    notif: true,
+    warnDays: 3,
+    currency: '$',
+    showExpired: true,
+  },
+  editingId: null,
+  currentView: 'dashboard',
+  chartPeriod: '30d',
+  chartInstances: {},
+  firebase: null,
+  firestore: null,
+  activeCategory: 'all',
+};
+
+// ────────────────────────────────────────────────────────────
+// STORAGE MANAGER
+// ────────────────────────────────────────────────────────────
+const Storage = {
+  load() {
+    try {
+      const items = localStorage.getItem(STORAGE_KEY);
+      const shopping = localStorage.getItem(SHOP_KEY);
+      const settings = localStorage.getItem(SETTINGS_KEY);
+      STATE.items = items ? JSON.parse(items) : [];
+      STATE.shopping = shopping ? JSON.parse(shopping) : [];
+      if (settings) Object.assign(STATE.settings, JSON.parse(settings));
+      STATE.items = STATE.items.filter(i => this.validateItem(i));
+      STATE.shopping = STATE.shopping.filter(i => this.validateShopItem(i));
+    } catch(e) {
+      console.error('[Storage.load]', e);
+      toast('error','Load Error','Could not load saved data. Starting fresh.');
+      STATE.items = [];
+      STATE.shopping = [];
+    }
+  },
+  save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE.items));
+      localStorage.setItem(SHOP_KEY, JSON.stringify(STATE.shopping));
+      this.syncFirebase();
+    } catch(e) {
+      if (e.name === 'QuotaExceededError') {
+        toast('error','Storage Full','Local storage quota exceeded. Export your data to free space.');
+      } else {
+        console.error('[Storage.save]', e);
+        toast('error','Save Error','Failed to save. Please try again.');
+      }
+    }
+  },
+  saveSettings() {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(STATE.settings));
+    } catch(e) { console.error('[Storage.saveSettings]', e); }
+  },
+  validateItem(item) {
+    if (!item || typeof item !== 'object') return false;
+    if (!item.id || typeof item.id !== 'string') return false;
+    if (!item.name || typeof item.name !== 'string' || item.name.trim() === '') return false;
+    if (typeof item.price !== 'number' || item.price < 0 || isNaN(item.price)) return false;
+    return true;
+  },
+  validateShopItem(item) {
+    if (!item || typeof item !== 'object') return false;
+    if (!item.id || !item.name) return false;
+    return true;
+  },
+  async syncFirebase() {
+    if (!STATE.firestore) return;
+    try {
+      const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+      const uid = STATE.firebase.userId || 'default';
+      await setDoc(doc(STATE.firestore, 'pantry', uid), {
+        items: STATE.items,
+        shopping: STATE.shopping,
+        updatedAt: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('[Firebase sync]', e);
+    }
+  }
+};
+
+// ────────────────────────────────────────────────────────────
+// UTILS
+// ────────────────────────────────────────────────────────────
+const Utils = {
+  uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  },
+  today() {
+    return new Date().toISOString().split('T')[0];
+  },
+  daysUntilExpiry(expiryDate) {
+    if (!expiryDate) return null;
+    const now = new Date(); now.setHours(0,0,0,0);
+    const exp = new Date(expiryDate + 'T00:00:00');
+    return Math.round((exp - now) / 86400000);
+  },
+  formatDate(d) {
+    if (!d) return '—';
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
+  },
+  formatCurrency(n) {
+    const c = STATE.settings.currency;
+    const abs = Math.abs(n);
+    return `${n < 0 ? '-' : ''}${c}${abs.toFixed(2)}`;
+  },
+  sanitize(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/[<>]/g,'').trim().slice(0, 200);
+  },
+  parsePrice(v) {
+    const n = parseFloat(v);
+    if (isNaN(n) || n < 0) return 0;
+    return Math.round(n * 100) / 100;
+  },
+  getExpiryClass(days) {
+    if (days === null) return '';
+    if (days < 0) return 'expired';
+    if (days === 0) return 'expiring-today';
+    if (days <= STATE.settings.warnDays) return 'expiring-soon';
+    return '';
+  },
+  getExpiryDaysClass(days) {
+    if (days === null) return '';
+    if (days < 0) return 'expired';
+    if (days <= 1) return 'urgent';
+    if (days <= STATE.settings.warnDays) return 'soon';
+    return 'ok';
+  },
+};
+
+// ────────────────────────────────────────────────────────────
+// NAVIGATION
+// ────────────────────────────────────────────────────────────
+function navigate(view) {
+  if (!view) return;
+  STATE.currentView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const target = document.getElementById('view-' + view);
+  if (target) target.classList.add('active');
+  document.querySelectorAll('.nav-item,.bottom-nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.view === view);
+  });
+  if (view === 'analytics') { setTimeout(updateCharts, 100); }
+  if (view === 'dashboard') { renderDashboard(); }
+  if (view === 'inventory') { renderInventory(); }
+  if (view === 'shopping') { renderShoppingList(); }
+}
+document.querySelectorAll('[data-view]').forEach(el => {
+  el.addEventListener('click', () => navigate(el.dataset.view));
+});
+
+// ────────────────────────────────────────────────────────────
+// RENDER ALL
+// ────────────────────────────────────────────────────────────
+function renderAll() {
+  updateBadges();
+  if (STATE.currentView === 'dashboard') renderDashboard();
+  if (STATE.currentView === 'inventory') renderInventory();
+  if (STATE.currentView === 'shopping') renderShoppingList();
+  if (STATE.currentView === 'analytics') updateCharts();
+}
+
+// ────────────────────────────────────────────────────────────
+// BADGES
+// ────────────────────────────────────────────────────────────
+function updateBadges() {
+  const urgent = STATE.items.filter(i => {
+    const d = Utils.daysUntilExpiry(i.expiryDate);
+    return d !== null && d <= STATE.settings.warnDays;
+  }).length;
+  ['expiry-badge-nav','expiry-badge-bottom'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = urgent;
+    el.classList.toggle('hidden', urgent === 0);
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// DASHBOARD
+// ────────────────────────────────────────────────────────────
+function renderDashboard() {
+  // Date
+  const el = document.getElementById('dash-date');
+  if (el) el.textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  
+  // Stats
+  const total = STATE.items.length;
+  const value = STATE.items.reduce((s,i) => s + (i.price * (i.quantity||1)), 0);
+  const warnDays = STATE.settings.warnDays;
+  const expiring = STATE.items.filter(i => {
+    const d = Utils.daysUntilExpiry(i.expiryDate);
+    return d !== null && d >= 0 && d <= warnDays;
+  }).length;
+  const expired = STATE.items.filter(i => {
+    const d = Utils.daysUntilExpiry(i.expiryDate);
+    return d !== null && d < 0;
+  }).length;
+  
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-total-meta').textContent = `across ${[...new Set(STATE.items.map(i=>i.category))].length} categories`;
+  document.getElementById('stat-value').textContent = Utils.formatCurrency(value);
+  document.getElementById('stat-expiring').textContent = expiring;
+  document.getElementById('stat-expired').textContent = expired;
+  
+  // Warnings
+  renderWarnings();
+  
+  // Recent items
+  const recent = [...STATE.items].sort((a,b) => new Date(b.addedAt||0) - new Date(a.addedAt||0)).slice(0,6);
+  const el2 = document.getElementById('recent-items');
+  if (el2) {
+    if (!recent.length) {
+      el2.innerHTML = '<div class="empty-state" style="padding:32px 0"><div class="empty-icon">📦</div><div class="empty-title">No items yet</div></div>';
+    } else {
+      el2.innerHTML = recent.map(item => {
+        const days = Utils.daysUntilExpiry(item.expiryDate);
+        return `<div class="item-card ${Utils.getExpiryClass(days)}" style="padding:12px 14px;margin-bottom:8px">
+          <span class="item-emoji">${CATEGORY_EMOJI[item.category]||'📦'}</span>
+          <div class="item-info">
+            <div class="item-name">${Utils.sanitize(item.name)}</div>
+            <div class="item-meta"><span class="item-tag category">${item.category}</span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="item-price">${Utils.formatCurrency(item.price)}</span>
+            ${days !== null ? `<div class="expiry-badge"><div class="expiry-days ${Utils.getExpiryDaysClass(days)}">${days < 0 ? 'EXP' : days === 0 ? '0d' : days + 'd'}</div><div class="expiry-label">${days < 0 ? 'expired' : 'left'}</div></div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+  
+  // Mini chart
+  renderDashChart();
+}
+
+function renderWarnings() {
+  const container = document.getElementById('warnings-container');
+  if (!container) return;
+  const warnDays = STATE.settings.warnDays;
+  const urgent = STATE.items.filter(i => {
+    const d = Utils.daysUntilExpiry(i.expiryDate);
+    return d !== null && d < 0;
+  });
+  const soon = STATE.items.filter(i => {
+    const d = Utils.daysUntilExpiry(i.expiryDate);
+    return d !== null && d >= 0 && d <= warnDays;
+  });
+  
+  if (!urgent.length && !soon.length) { container.innerHTML = ''; return; }
+  
+  let html = '';
+  if (urgent.length) {
+    html += `<div class="warnings-panel" style="border-color:rgba(255,69,58,0.3);margin-bottom:20px">
+      <div class="warnings-header"><div class="pulse-dot danger"></div><h3 style="color:var(--danger)">⚠ ${urgent.length} item${urgent.length>1?'s':''} expired</h3></div>
+      <div class="warning-items">
+        ${urgent.slice(0,3).map(i => `<div class="warning-item critical">
+          <span>${CATEGORY_EMOJI[i.category]||'📦'}</span>
+          <span style="flex:1;font-weight:500">${Utils.sanitize(i.name)}</span>
+          <span style="color:var(--danger);font-family:var(--font-mono);font-size:12px">Expired ${Math.abs(Utils.daysUntilExpiry(i.expiryDate))}d ago</span>
+          <button class="btn btn-danger btn-sm" onclick="deleteItem('${i.id}')">Remove</button>
+        </div>`).join('')}
+        ${urgent.length > 3 ? `<div style="text-align:center;font-size:12px;color:var(--text-3);padding:4px">+${urgent.length-3} more</div>` : ''}
+      </div>
+    </div>`;
+  }
+  if (soon.length) {
+    html += `<div class="warnings-panel" style="margin-bottom:20px">
+      <div class="warnings-header"><div class="pulse-dot"></div><h3 style="color:var(--warning)">⏱ ${soon.length} item${soon.length>1?'s':''} expiring soon</h3></div>
+      <div class="warning-items">
+        ${soon.slice(0,3).map(i => {
+          const d = Utils.daysUntilExpiry(i.expiryDate);
+          return `<div class="warning-item">
+            <span>${CATEGORY_EMOJI[i.category]||'📦'}</span>
+            <span style="flex:1;font-weight:500">${Utils.sanitize(i.name)}</span>
+            <span style="color:var(--warning);font-family:var(--font-mono);font-size:12px">${d === 0 ? 'Today!' : `${d}d left`}</span>
+            <button class="btn btn-warning btn-sm" onclick="addToShoppingFromItem('${i.id}')">Add to list</button>
+          </div>`;
+        }).join('')}
+        ${soon.length > 3 ? `<div style="text-align:center;font-size:12px;color:var(--text-3);padding:4px">+${soon.length-3} more</div>` : ''}
+      </div>
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderDashChart() {
+  const canvas = document.getElementById('dash-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (STATE.chartInstances.dash) { STATE.chartInstances.dash.destroy(); }
+  
+  // Last 7 days spending
+  const days = 7;
+  const labels = [];
+  const data = [];
+  for (let i = days-1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    labels.push(d.toLocaleDateString('en-US',{weekday:'short'}));
+    const dateStr = d.toISOString().split('T')[0];
+    const dayTotal = STATE.items
+      .filter(it => it.purchaseDate === dateStr)
+      .reduce((s, it) => s + it.price * (it.quantity||1), 0);
+    data.push(dayTotal);
+  }
+  
+  STATE.chartInstances.dash = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: 'rgba(0,212,177,0.25)', borderColor: 'rgba(0,212,177,0.8)', borderWidth: 2, borderRadius: 6, borderSkipped: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#13132a', borderColor: '#2a2a5a', borderWidth: 1,
+        titleColor: '#e8e8f8', bodyColor: '#9898c0',
+        callbacks: { label: ctx => ` ${Utils.formatCurrency(ctx.raw)}` }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#505078', font: { family: "'JetBrains Mono'" } }},
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#505078', font: { family: "'JetBrains Mono'" }, callback: v => Utils.formatCurrency(v) }, border: { display: false }}
+      }
+    }
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// INVENTORY
+// ────────────────────────────────────────────────────────────
+let filterState = { query: '', category: 'all', sort: 'expiry' };
+
+function renderInventory() {
+  renderCategoryFilters();
+  filterInventory();
+}
+
+function renderCategoryFilters() {
+  const cats = ['all', ...new Set(STATE.items.map(i => i.category))].filter(Boolean);
+  const el = document.getElementById('category-filters');
+  if (!el) return;
+  el.innerHTML = cats.map(c => `
+    <button class="chip ${filterState.category === c ? 'active' : ''}" onclick="setCategory('${c}')">${c === 'all' ? 'All' : (CATEGORY_EMOJI[c]||'')+ ' ' + c}</button>
+  `).join('');
+}
+
+function setCategory(cat) {
+  filterState.category = cat;
+  filterInventory();
+  renderCategoryFilters();
+}
+
+function filterInventory() {
+  try {
+    const query = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+    const sort = document.getElementById('sort-select')?.value || 'expiry';
+    filterState.query = query;
+    filterState.sort = sort;
+    
+    let items = [...STATE.items];
+    
+    // Filter
+    if (!STATE.settings.showExpired) items = items.filter(i => Utils.daysUntilExpiry(i.expiryDate) >= 0 || i.expiryDate === undefined);
+    if (filterState.category !== 'all') items = items.filter(i => i.category === filterState.category);
+    if (query) items = items.filter(i => i.name.toLowerCase().includes(query) || (i.store||'').toLowerCase().includes(query) || (i.category||'').toLowerCase().includes(query));
+    
+    // Sort
+    items.sort((a,b) => {
+      switch(sort) {
+        case 'name': return a.name.localeCompare(b.name);
+        case 'price': return b.price - a.price;
+        case 'date': return new Date(b.addedAt||0) - new Date(a.addedAt||0);
+        case 'category': return (a.category||'').localeCompare(b.category||'');
+        case 'expiry': default: {
+          const da = Utils.daysUntilExpiry(a.expiryDate) ?? 99999;
+          const db2 = Utils.daysUntilExpiry(b.expiryDate) ?? 99999;
+          return da - db2;
+        }
+      }
+    });
+    
+    const list = document.getElementById('inventory-list');
+    const counter = document.getElementById('inv-count');
+    const total = document.getElementById('inv-total');
+    
+    if (counter) counter.textContent = `${items.length} item${items.length !== 1 ? 's' : ''}`;
+    const totalVal = items.reduce((s,i) => s + i.price * (i.quantity||1), 0);
+    if (total) total.textContent = Utils.formatCurrency(totalVal);
+    
+    if (!list) return;
+    if (!items.length) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No items found</div><div class="empty-sub">${query ? 'Try a different search term' : 'Add items to your pantry to get started'}</div></div>`;
+      return;
+    }
+    list.innerHTML = items.map(item => renderItemCard(item)).join('');
+  } catch(e) {
+    console.error('[filterInventory]', e);
+    toast('error','Error','Failed to filter inventory.');
+  }
+}
+
+function renderItemCard(item) {
+  const days = Utils.daysUntilExpiry(item.expiryDate);
+  const expiryClass = Utils.getExpiryClass(days);
+  let expiryHtml = '';
+  if (item.expiryDate) {
+    const dClass = Utils.getExpiryDaysClass(days);
+    const dText = days < 0 ? `${Math.abs(days)}d` : days === 0 ? '0d' : `${days}d`;
+    const dLabel = days < 0 ? 'expired' : 'left';
+    expiryHtml = `<div class="expiry-badge"><div class="expiry-days ${dClass}">${dText}</div><div class="expiry-label">${dLabel}</div></div>`;
+  }
+  return `<div class="item-card ${expiryClass}">
+    <span class="item-emoji">${CATEGORY_EMOJI[item.category]||'📦'}</span>
+    <div class="item-info">
+      <div class="item-name">${Utils.sanitize(item.name)}</div>
+      <div class="item-meta">
+        <span class="item-tag category ${CATEGORY_CLASS[item.category]||''}">${item.category||'Other'}</span>
+        <span class="item-tag">${item.quantity||1} ${item.unit||'units'}</span>
+        ${item.store ? `<span class="item-tag">${Utils.sanitize(item.store)}</span>` : ''}
+        ${item.expiryDate ? `<span class="item-tag">Exp: ${Utils.formatDate(item.expiryDate)}</span>` : ''}
+      </div>
+    </div>
+    <div class="item-right">
+      ${expiryHtml}
+      <span class="item-price">${Utils.formatCurrency(item.price)}</span>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-icon btn-sm" title="Edit" onclick="openEditModal('${item.id}')">✏️</button>
+        <button class="btn btn-danger btn-icon btn-sm" title="Delete" onclick="deleteItem('${item.id}')">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ────────────────────────────────────────────────────────────
+// ADD / EDIT MODAL
+// ────────────────────────────────────────────────────────────
+function openAddModal() {
+  STATE.editingId = null;
+  document.getElementById('modal-title').textContent = 'Add Item';
+  ['f-name','f-store','f-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  const qtyEl = document.getElementById('f-qty'); if(qtyEl) qtyEl.value = '1';
+  const priceEl = document.getElementById('f-price'); if(priceEl) priceEl.value = '';
+  const catEl = document.getElementById('f-category'); if(catEl) catEl.value = 'Produce';
+  const unitEl = document.getElementById('f-unit'); if(unitEl) unitEl.value = 'units';
+  const purchEl = document.getElementById('f-purchase'); if(purchEl) purchEl.value = Utils.today();
+  const expEl = document.getElementById('f-expiry'); if(expEl) expEl.value = '';
+  clearFormErrors();
+  openModal('item-modal');
+  setTimeout(() => document.getElementById('f-name')?.focus(), 100);
+}
+
+function openEditModal(id) {
+  const item = STATE.items.find(i => i.id === id);
+  if (!item) { toast('error','Error','Item not found.'); return; }
+  STATE.editingId = id;
+  document.getElementById('modal-title').textContent = 'Edit Item';
+  document.getElementById('f-name').value = item.name;
+  document.getElementById('f-category').value = item.category || 'Other';
+  document.getElementById('f-store').value = item.store || '';
+  document.getElementById('f-qty').value = item.quantity || 1;
+  document.getElementById('f-unit').value = item.unit || 'units';
+  document.getElementById('f-price').value = item.price || '';
+  document.getElementById('f-purchase').value = item.purchaseDate || Utils.today();
+  document.getElementById('f-expiry').value = item.expiryDate || '';
+  document.getElementById('f-notes').value = item.notes || '';
+  clearFormErrors();
+  openModal('item-modal');
+}
+
+function saveItem() {
+  const name = Utils.sanitize(document.getElementById('f-name').value);
+  const qty = parseFloat(document.getElementById('f-qty').value);
+  const price = Utils.parsePrice(document.getElementById('f-price').value);
+  const purchaseDate = document.getElementById('f-purchase').value;
+  const expiryDate = document.getElementById('f-expiry').value;
+  
+  // Validation
+  let valid = true;
+  clearFormErrors();
+  
+  if (!name) { showFieldError('f-name','e-name','Name is required'); valid = false; }
+  if (isNaN(qty) || qty <= 0) { showFieldError('f-qty','e-qty','Must be greater than 0'); valid = false; }
+  if (isNaN(price) || price < 0) { showFieldError('f-price','e-price','Enter a valid price (0 or more)'); valid = false; }
+  if (expiryDate && purchaseDate && expiryDate < purchaseDate) { showFieldError('f-expiry','e-expiry','Expiry can\'t be before purchase date'); valid = false; }
+  if (!valid) return;
+  
+  const item = {
+    id: STATE.editingId || Utils.uid(),
+    name,
+    category: document.getElementById('f-category').value,
+    store: Utils.sanitize(document.getElementById('f-store').value),
+    quantity: qty,
+    unit: document.getElementById('f-unit').value,
+    price,
+    purchaseDate: purchaseDate || Utils.today(),
+    expiryDate: expiryDate || null,
+    notes: Utils.sanitize(document.getElementById('f-notes').value),
+    addedAt: STATE.editingId ? (STATE.items.find(i=>i.id===STATE.editingId)?.addedAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if (STATE.editingId) {
+    const idx = STATE.items.findIndex(i => i.id === STATE.editingId);
+    if (idx !== -1) STATE.items[idx] = item;
+    toast('success','Updated!',`${name} has been updated.`);
+  } else {
+    STATE.items.push(item);
+    toast('success','Added!',`${name} added to pantry.`);
+  }
+  
+  Storage.save();
+  closeModal('item-modal');
+  renderAll();
+  checkExpiryNotification(item);
+}
+
+function deleteItem(id) {
+  const item = STATE.items.find(i => i.id === id);
+  if (!item) return;
+  confirmAction(`Remove "${Utils.sanitize(item.name)}"?`, 'This item will be permanently removed from your pantry.', () => {
+    STATE.items = STATE.items.filter(i => i.id !== id);
+    Storage.save();
+    renderAll();
+    toast('info','Removed',`${Utils.sanitize(item.name)} removed from pantry.`);
+  });
+}
+
+function adjustQty(delta) {
+  const el = document.getElementById('f-qty');
+  if (!el) return;
+  const val = parseFloat(el.value) || 0;
+  const newVal = Math.max(0.1, Math.round((val + delta) * 10) / 10);
+  el.value = newVal;
+}
+
+function showFieldError(fieldId, errorId, msg) {
+  const field = document.getElementById(fieldId);
+  const err = document.getElementById(errorId);
+  if (field) field.classList.add('error');
+  if (err) { err.textContent = msg; err.classList.remove('hidden'); }
+}
+function clearFormErrors() {
+  document.querySelectorAll('.input.error').forEach(el => el.classList.remove('error'));
+  document.querySelectorAll('.form-error').forEach(el => el.classList.add('hidden'));
+}
+
+// ────────────────────────────────────────────────────────────
+// SHOPPING LIST
+// ────────────────────────────────────────────────────────────
+function renderShoppingList() {
+  const list = document.getElementById('shopping-list');
+  const empty = document.getElementById('shopping-empty');
+  const totalBar = document.getElementById('shop-total-bar');
+  const counter = document.getElementById('shop-count');
+  const totalEl = document.getElementById('shop-total');
+  
+  if (!list) return;
+  
+  const unchecked = STATE.shopping.filter(i => !i.checked);
+  const checked = STATE.shopping.filter(i => i.checked);
+  const sorted = [...unchecked, ...checked];
+  
+  if (counter) counter.textContent = `${unchecked.length} remaining`;
+  
+  if (!sorted.length) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = 'flex';
+    if (totalBar) totalBar.style.display = 'none';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  if (totalBar) totalBar.style.display = 'flex';
+  
+  const total = STATE.shopping.reduce((s,i) => s + (i.estimatedPrice||0) * (i.quantity||1), 0);
+  if (totalEl) totalEl.textContent = Utils.formatCurrency(total);
+  
+  list.innerHTML = sorted.map(item => `
+    <div class="shop-item ${item.checked ? 'checked' : ''}" id="shop-${item.id}">
+      <div class="shop-priority priority-${item.priority||'medium'}"></div>
+      <div class="shop-checkbox ${item.checked ? 'checked' : ''}" onclick="toggleShopItem('${item.id}')">${item.checked ? '✓' : ''}</div>
+      <span class="shop-name">${Utils.sanitize(item.name)}</span>
+      <span class="shop-qty mono">${item.quantity||1} ${item.unit||''}</span>
+      ${item.estimatedPrice ? `<span class="item-price" style="font-size:14px">${Utils.formatCurrency(item.estimatedPrice)}</span>` : ''}
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="removeShopItem('${item.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function openAddShopModal() {
+  ['sf-name'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('sf-qty').value = 1;
+  document.getElementById('sf-price').value = '';
+  document.getElementById('sf-priority').value = 'medium';
+  openModal('shop-modal');
+  setTimeout(() => document.getElementById('sf-name')?.focus(), 100);
+}
+
+function saveShopItem() {
+  const name = Utils.sanitize(document.getElementById('sf-name').value);
+  if (!name) { toast('error','Error','Item name is required.'); return; }
+  const item = {
+    id: Utils.uid(),
+    name,
+    category: document.getElementById('sf-category').value,
+    quantity: parseInt(document.getElementById('sf-qty').value) || 1,
+    estimatedPrice: Utils.parsePrice(document.getElementById('sf-price').value),
+    priority: document.getElementById('sf-priority').value,
+    checked: false,
+    addedAt: new Date().toISOString(),
+  };
+  STATE.shopping.push(item);
+  Storage.save();
+  closeModal('shop-modal');
+  renderShoppingList();
+  toast('success','Added!',`${name} added to shopping list.`);
+}
+
+function toggleShopItem(id) {
+  const item = STATE.shopping.find(i => i.id === id);
+  if (!item) return;
+  item.checked = !item.checked;
+  Storage.save();
+  renderShoppingList();
+}
+
+function removeShopItem(id) {
+  STATE.shopping = STATE.shopping.filter(i => i.id !== id);
+  Storage.save();
+  renderShoppingList();
+}
+
+function clearChecked() {
+  const count = STATE.shopping.filter(i => i.checked).length;
+  if (!count) { toast('info','Nothing to clear','No checked items.'); return; }
+  STATE.shopping = STATE.shopping.filter(i => !i.checked);
+  Storage.save();
+  renderShoppingList();
+  toast('success','Cleared!',`Removed ${count} checked item${count>1?'s':''}.`);
+}
+
+function autoGenerateList() {
+  const toAdd = [];
+  // Expired items need restocking
+  STATE.items.filter(i => {
+    const d = Utils.daysUntilExpiry(i.expiryDate);
+    return d !== null && d < 0;
+  }).forEach(item => {
+    if (!STATE.shopping.find(s => s.name.toLowerCase() === item.name.toLowerCase())) {
+      toAdd.push({ id:Utils.uid(), name:item.name, category:item.category, quantity:1, estimatedPrice:item.price, priority:'high', checked:false, addedAt:new Date().toISOString() });
+    }
+  });
+  // Items expiring within 2 days
+  STATE.items.filter(i => {
+    const d = Utils.daysUntilExpiry(i.expiryDate);
+    return d !== null && d >= 0 && d <= 2;
+  }).forEach(item => {
+    if (!STATE.shopping.find(s => s.name.toLowerCase() === item.name.toLowerCase())) {
+      toAdd.push({ id:Utils.uid(), name:item.name, category:item.category, quantity:1, estimatedPrice:item.price, priority:'medium', checked:false, addedAt:new Date().toISOString() });
+    }
+  });
+  
+  if (!toAdd.length) { toast('info','Up to date!','No items need restocking right now.'); return; }
+  STATE.shopping = [...STATE.shopping, ...toAdd];
+  Storage.save();
+  renderShoppingList();
+  toast('success','Generated!',`Added ${toAdd.length} item${toAdd.length>1?'s':''} to your list.`);
+}
+
+function addToShoppingFromItem(id) {
+  const item = STATE.items.find(i => i.id === id);
+  if (!item) return;
+  if (STATE.shopping.find(s => s.name.toLowerCase() === item.name.toLowerCase())) {
+    toast('info','Already listed',`${item.name} is already on your shopping list.`); return;
+  }
+  STATE.shopping.push({ id:Utils.uid(), name:item.name, category:item.category, quantity:1, estimatedPrice:item.price, priority:'high', checked:false, addedAt:new Date().toISOString() });
+  Storage.save();
+  toast('success','Added!',`${item.name} added to shopping list.`);
+}
+
+// ────────────────────────────────────────────────────────────
+// ANALYTICS CHARTS
+// ────────────────────────────────────────────────────────────
+const chartDefaults = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#9898c0', font:{ family:"'Syne'" } } }, tooltip:{ backgroundColor:'#13132a', borderColor:'#2a2a5a', borderWidth:1, titleColor:'#e8e8f8', bodyColor:'#9898c0' } }, scales:{ x:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#505078', font:{ family:"'JetBrains Mono'", size:11 } } }, y:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#505078', font:{ family:"'JetBrains Mono'", size:11 } }, border:{ display:false } } } };
+
+function setPeriod(period, btn) {
+  STATE.chartPeriod = period;
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const customRow = document.querySelector('.page-header [type=date]')?.closest('div');
+  if (customRow) customRow.style.display = period === 'custom' ? 'flex' : 'none';
+  updateCharts();
+}
+
+function getDateRange() {
+  const now = new Date();
+  const to = new Date(); to.setHours(23,59,59,999);
+  let from = new Date();
+  const p = STATE.chartPeriod;
+  if (p === '7d') from.setDate(now.getDate()-7);
+  else if (p === '30d') from.setDate(now.getDate()-30);
+  else if (p === '90d') from.setDate(now.getDate()-90);
+  else if (p === '1y') from.setFullYear(now.getFullYear()-1);
+  else if (p === 'custom') {
+    const f = document.getElementById('date-from')?.value;
+    const t2 = document.getElementById('date-to')?.value;
+    if (f) from = new Date(f);
+    if (t2) { const t2d = new Date(t2); t2d.setHours(23,59,59,999); return { from, to:t2d }; }
+  }
+  from.setHours(0,0,0,0);
+  return { from, to };
+}
+
+function updateCharts() {
+  try {
+    renderAnalyticsStats();
+    renderSpendingChart();
+    renderCategoryChart();
+    renderWasteChart();
+  } catch(e) {
+    console.error('[updateCharts]', e);
+    toast('error','Chart Error','Failed to render charts.');
+  }
+}
+
+function renderAnalyticsStats() {
+  const { from, to } = getDateRange();
+  const items = STATE.items.filter(i => { const d = new Date(i.purchaseDate||i.addedAt); return d >= from && d <= to; });
+  const total = items.reduce((s,i) => s + i.price*(i.quantity||1), 0);
+  const avgPerItem = items.length ? total/items.length : 0;
+  const topCat = (() => { const m={}; items.forEach(i => { m[i.category]=(m[i.category]||0)+i.price*(i.quantity||1); }); return Object.entries(m).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—'; })();
+  const el = document.getElementById('analytics-stats');
+  if (el) el.innerHTML = `
+    <div class="stat-card"><div class="stat-label">Period Spend</div><div class="stat-value mono">${Utils.formatCurrency(total)}</div><div class="stat-meta">${items.length} items purchased</div></div>
+    <div class="stat-card purple"><div class="stat-label">Avg Per Item</div><div class="stat-value mono">${Utils.formatCurrency(avgPerItem)}</div><div class="stat-meta">average cost</div></div>
+    <div class="stat-card success"><div class="stat-label">Top Category</div><div class="stat-value" style="font-size:18px">${CATEGORY_EMOJI[topCat]||'📦'} ${topCat}</div><div class="stat-meta">highest spend</div></div>
+    <div class="stat-card warning"><div class="stat-label">Waste Estimate</div><div class="stat-value mono">${Utils.formatCurrency(STATE.items.filter(i=>{const d=Utils.daysUntilExpiry(i.expiryDate);return d!==null&&d<0}).reduce((s,i)=>s+i.price*(i.quantity||1),0))}</div><div class="stat-meta">expired items value</div></div>
+  `;
+}
+
+function renderSpendingChart() {
+  const canvas = document.getElementById('spending-chart');
+  if (!canvas) return;
+  if (STATE.chartInstances.spending) STATE.chartInstances.spending.destroy();
+  const { from, to } = getDateRange();
+  
+  // Build time-series data
+  const diffMs = to - from;
+  const diffDays = Math.ceil(diffMs / 86400000);
+  const labels = [], data = [];
+  
+  for (let i = 0; i < Math.min(diffDays, 60); i++) {
+    const d = new Date(from); d.setDate(from.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    labels.push(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+    const dayTotal = STATE.items.filter(it => (it.purchaseDate||it.addedAt?.split('T')[0]) === dateStr)
+      .reduce((s,it) => s + it.price*(it.quantity||1), 0);
+    data.push(dayTotal);
+  }
+  
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 280);
+  grad.addColorStop(0, 'rgba(0,212,177,0.3)');
+  grad.addColorStop(1, 'rgba(0,212,177,0)');
+  
+  STATE.chartInstances.spending = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Spending', data, fill: true, backgroundColor: grad, borderColor: '#00d4b1', borderWidth: 2, tension: 0.4, pointBackgroundColor: '#00d4b1', pointRadius: 3, pointHoverRadius: 6 }] },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ` ${Utils.formatCurrency(ctx.raw)}` } } }, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, ticks: { ...chartDefaults.scales.y.ticks, callback: v => Utils.formatCurrency(v) } } } }
+  });
+}
+
+function renderCategoryChart() {
+  const canvas = document.getElementById('category-chart');
+  if (!canvas) return;
+  if (STATE.chartInstances.cat) STATE.chartInstances.cat.destroy();
+  const { from, to } = getDateRange();
+  const items = STATE.items.filter(i => { const d = new Date(i.purchaseDate||i.addedAt); return d >= from && d <= to; });
+  const catMap = {};
+  items.forEach(i => { catMap[i.category] = (catMap[i.category]||0) + i.price*(i.quantity||1); });
+  const cats = Object.keys(catMap); const vals = cats.map(c => catMap[c]);
+  const colors = ['#00d4b1','#7c6af7','#ff9f0a','#ff453a','#32d74b','#64d2ff','#bf5af2','#ff6b35','#98989e','#ffcc02','#5ac8fa'];
+  STATE.chartInstances.cat = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: cats, datasets: [{ data: vals, backgroundColor: colors.slice(0,cats.length), borderWidth: 0, hoverOffset: 6 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#9898c0', padding:12, font:{family:"'Syne'",size:11} } }, tooltip:{ backgroundColor:'#13132a', borderColor:'#2a2a5a', borderWidth:1, callbacks:{ label: ctx => ` ${Utils.formatCurrency(ctx.raw)}` } } }, cutout:'65%' }
+  });
+}
+
+function renderWasteChart() {
+  const canvas = document.getElementById('waste-chart');
+  if (!canvas) return;
+  if (STATE.chartInstances.waste) STATE.chartInstances.waste.destroy();
+  const expired = STATE.items.filter(i => { const d = Utils.daysUntilExpiry(i.expiryDate); return d !== null && d < 0; });
+  const fresh = STATE.items.filter(i => { const d = Utils.daysUntilExpiry(i.expiryDate); return d === null || d >= 0; });
+  const expiredVal = expired.reduce((s,i) => s + i.price*(i.quantity||1), 0);
+  const freshVal = fresh.reduce((s,i) => s + i.price*(i.quantity||1), 0);
+  STATE.chartInstances.waste = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: ['Fresh','Expired'], datasets: [{ data:[freshVal,expiredVal], backgroundColor:['#32d74b','#ff453a'], borderWidth:0, hoverOffset:6 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#9898c0', padding:12, font:{family:"'Syne'",size:11} } }, tooltip:{ backgroundColor:'#13132a', borderColor:'#2a2a5a', borderWidth:1, callbacks:{ label: ctx => ` ${Utils.formatCurrency(ctx.raw)}` } } }, cutout:'65%' }
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// OCR / RECEIPT SCANNING
+// ────────────────────────────────────────────────────────────
+let ocrWorker = null;
+
+async function handleScanFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  await processOCRFile(file);
+  event.target.value = '';
+}
+
+function handleDragOver(e) { e.preventDefault(); document.getElementById('scan-zone').classList.add('dragging'); }
+function handleDragLeave() { document.getElementById('scan-zone').classList.remove('dragging'); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('scan-zone').classList.remove('dragging');
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/') && file.type !== 'application/pdf') { toast('error','Invalid File','Please upload an image or PDF file.'); return; }
+  if (file.size > 10 * 1024 * 1024) { toast('error','File Too Large','Maximum file size is 10MB.'); return; }
+  processOCRFile(file);
+}
+
+async function processOCRFile(file) {
+  if (!file.type.startsWith('image/') && file.type !== 'application/pdf') { toast('error','Invalid File','Please upload an image file (JPG, PNG).'); return; }
+  if (file.size > 10 * 1024 * 1024) { toast('error','File Too Large','Max 10MB allowed.'); return; }
+  
+  // Show preview
+  if (file.type.startsWith('image/')) {
+    const previewDiv = document.getElementById('scan-preview');
+    const previewImg = document.getElementById('scan-image-preview');
+    if (previewDiv && previewImg) {
+      previewImg.src = URL.createObjectURL(file);
+      previewDiv.style.display = 'block';
+    }
+  }
+  
+  const progressEl = document.getElementById('ocr-progress');
+  const resultEl = document.getElementById('ocr-result');
+  if (progressEl) progressEl.style.display = 'block';
+  if (resultEl) resultEl.style.display = 'none';
+  
+  try {
+    setOCRStatus('Loading Tesseract engine...', 5);
+    
+    // Dynamically load Tesseract
+    if (!window.Tesseract) {
+      await loadScript('https://unpkg.com/tesseract.js@4/dist/tesseract.min.js');
+    }
+    
+    setOCRStatus('Creating worker...', 15);
+    const worker = await Tesseract.createWorker('eng', 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          setOCRStatus('Recognizing text...', 15 + Math.round(m.progress * 75));
+        } else {
+          setOCRStatus(m.status, 20);
+        }
+      }
+    });
+    
+    setOCRStatus('Processing image...', 90);
+    const { data: { text } } = await worker.recognize(file);
+    await worker.terminate();
+    
+    setOCRStatus('Complete!', 100);
+    
+    setTimeout(() => {
+      if (progressEl) progressEl.style.display = 'none';
+      showOCRResult(text);
+    }, 500);
+    
+  } catch(e) {
+    console.error('[OCR Error]', e);
+    if (progressEl) progressEl.style.display = 'none';
+    toast('error','OCR Failed', e.message.includes('network') ? 'Network error loading OCR engine. Check your connection.' : 'Could not process image. Try a clearer photo.');
+  }
+}
+
+function setOCRStatus(msg, pct) {
+  const status = document.getElementById('ocr-status');
+  const bar = document.getElementById('ocr-bar');
+  const detail = document.getElementById('ocr-detail');
+  if (status) status.textContent = msg;
+  if (bar) bar.style.width = pct + '%';
+  if (detail) detail.textContent = `${pct}% complete`;
+}
+
+function showOCRResult(rawText) {
+  const resultEl = document.getElementById('ocr-result');
+  const rawEl = document.getElementById('ocr-raw-text');
+  const listEl = document.getElementById('extracted-items-list');
+  if (!resultEl || !rawEl || !listEl) return;
+  
+  rawEl.textContent = rawText || '(No text detected)';
+  
+  const items = parseReceiptText(rawText);
+  
+  if (!items.length) {
+    listEl.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:8px">No items could be automatically detected. Review the raw text above and add items manually.</div>';
+  } else {
+    listEl.innerHTML = items.map((item, idx) => `
+      <div class="extracted-item">
+        <input type="checkbox" id="ext-${idx}" checked>
+        <span style="flex:1">${Utils.sanitize(item.name)}</span>
+        <span style="font-family:var(--font-mono);color:var(--accent);font-size:13px">${item.price ? Utils.formatCurrency(item.price) : '—'}</span>
+      </div>
+    `).join('');
+    listEl.dataset.items = JSON.stringify(items);
+  }
+  
+  resultEl.style.display = 'block';
+  toast('success','Scan Complete!',`Extracted ${rawText.split('\n').filter(l=>l.trim()).length} lines of text.`);
+}
+
+function parseReceiptText(text) {
+  if (!text) return [];
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+  const items = [];
+  const pricePattern = /\$?\d+\.\d{2}/;
+  const skipPattern = /^(subtotal|total|tax|change|cash|credit|visa|mastercard|thank|receipt|store|date|time|tel|phone|address|welcome|\d{10,})/i;
+  
+  lines.forEach(line => {
+    if (skipPattern.test(line)) return;
+    const priceMatch = line.match(pricePattern);
+    const price = priceMatch ? parseFloat(priceMatch[0].replace('$','')) : null;
+    const name = line.replace(pricePattern,'').replace(/^\d+\s+x?\s*/i,'').trim().replace(/\s+/g,' ');
+    if (name.length > 1 && name.length < 60 && (price !== null || name.length > 3)) {
+      items.push({ name: name.slice(0,50), price });
+    }
+  });
+  
+  return items.slice(0, 20); // Max 20 items
+}
+
+function importSelectedItems() {
+  const listEl = document.getElementById('extracted-items-list');
+  const stored = listEl?.dataset.items;
+  if (!stored) { toast('error','Error','No items to import.'); return; }
+  const items = JSON.parse(stored);
+  let imported = 0;
+  items.forEach((item, idx) => {
+    const cb = document.getElementById(`ext-${idx}`);
+    if (!cb?.checked) return;
+    STATE.items.push({
+      id: Utils.uid(),
+      name: item.name,
+      category: 'Other',
+      quantity: 1,
+      unit: 'units',
+      price: item.price || 0,
+      purchaseDate: Utils.today(),
+      expiryDate: null,
+      notes: 'Imported from receipt scan',
+      addedAt: new Date().toISOString(),
+    });
+    imported++;
+  });
+  if (!imported) { toast('info','Nothing Selected','Check items to import them.'); return; }
+  Storage.save();
+  renderAll();
+  toast('success','Imported!',`${imported} item${imported>1?'s':''} added to pantry. Review and add expiry dates.`);
+  resetScan();
+  navigate('inventory');
+}
+
+function resetScan() {
+  document.getElementById('ocr-result').style.display = 'none';
+  document.getElementById('ocr-progress').style.display = 'none';
+  document.getElementById('scan-preview').style.display = 'none';
+  document.getElementById('ocr-raw-text').textContent = '';
+  document.getElementById('extracted-items-list').innerHTML = '';
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('Failed to load: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// SETTINGS
+// ────────────────────────────────────────────────────────────
+function loadSettings() {
+  const s = STATE.settings;
+  const notifToggle = document.getElementById('toggle-notif');
+  const expiredToggle = document.getElementById('toggle-expired');
+  const warnDays = document.getElementById('warn-days');
+  const currency = document.getElementById('currency-select');
+  if (notifToggle) notifToggle.classList.toggle('on', s.notif);
+  if (expiredToggle) expiredToggle.classList.toggle('on', s.showExpired);
+  if (warnDays) warnDays.value = s.warnDays || 3;
+  if (currency) currency.value = s.currency || '$';
+}
+
+function toggleSetting(key) {
+  if (key === 'notif') {
+    STATE.settings.notif = !STATE.settings.notif;
+    document.getElementById('toggle-notif')?.classList.toggle('on', STATE.settings.notif);
+  }
+  if (key === 'showExpired') {
+    STATE.settings.showExpired = !STATE.settings.showExpired;
+    document.getElementById('toggle-expired')?.classList.toggle('on', STATE.settings.showExpired);
+  }
+  saveSettings();
+}
+
+function saveSettings() {
+  STATE.settings.warnDays = parseInt(document.getElementById('warn-days')?.value) || 3;
+  STATE.settings.currency = document.getElementById('currency-select')?.value || '$';
+  Storage.saveSettings();
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) { toast('error','Not Supported','Browser notifications not supported.'); return; }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') toast('success','Notifications Enabled','You\'ll receive expiry alerts.');
+  else toast('warning','Permission Denied','Enable notifications in your browser settings.');
+}
+
+function checkExpiryNotification(item) {
+  if (!STATE.settings.notif) return;
+  if (!item.expiryDate) return;
+  const days = Utils.daysUntilExpiry(item.expiryDate);
+  if (days !== null && days <= STATE.settings.warnDays && days >= 0) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('PantryOS - Expiry Warning', { body: `${item.name} expires ${days === 0 ? 'today' : `in ${days} day${days>1?'s':''}`}!`, icon: 'icons/icon-192.png' });
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// FIREBASE
+// ────────────────────────────────────────────────────────────
+async function initFirebase() {
+  const configEl = document.getElementById('firebase-config-input');
+  if (!configEl?.value.trim()) { toast('error','Error','Please enter your Firebase config JSON.'); return; }
+  try {
+    const config = JSON.parse(configEl.value.trim());
+    const required = ['apiKey','authDomain','projectId'];
+    const missing = required.filter(k => !config[k]);
+    if (missing.length) { toast('error','Invalid Config',`Missing fields: ${missing.join(', ')}`); return; }
+    
+    setFirebaseStatus('connecting');
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
+    const { getFirestore, doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+    
+    const app = initializeApp(config);
+    STATE.firestore = getFirestore(app);
+    STATE.firebase = { userId: 'default', app };
+    
+    // Try to load data from cloud
+    const ref = doc(STATE.firestore, 'pantry', 'default');
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.items?.length) { STATE.items = data.items; Storage.save(); }
+      if (data.shopping?.length) { STATE.shopping = data.shopping; Storage.save(); }
+      toast('success','Synced!','Data loaded from Firebase.');
+    } else {
+      await setDoc(ref, { items: STATE.items, shopping: STATE.shopping, updatedAt: new Date().toISOString() });
+      toast('success','Connected!','Firebase connected. Data will sync automatically.');
+    }
+    
+    setFirebaseStatus('connected');
+    localStorage.setItem('pantryos_firebase_config', configEl.value);
+    renderAll();
+  } catch(e) {
+    console.error('[Firebase init]', e);
+    setFirebaseStatus('error');
+    if (e instanceof SyntaxError) toast('error','Invalid JSON','Firebase config is not valid JSON.');
+    else toast('error','Connection Failed', e.message.slice(0, 80));
+  }
+}
+
+function setFirebaseStatus(status) {
+  const dot = document.getElementById('firebase-dot');
+  const text = document.getElementById('firebase-status-text');
+  if (!dot || !text) return;
+  dot.className = 'status-dot';
+  if (status === 'connected') { dot.classList.add('connected'); text.textContent = 'Connected to Firebase'; }
+  else if (status === 'connecting') { dot.classList.add('connecting'); text.textContent = 'Connecting...'; }
+  else if (status === 'error') { text.textContent = 'Connection failed'; }
+  else { text.textContent = 'Not configured'; }
+}
+
+// ────────────────────────────────────────────────────────────
+// DATA EXPORT / IMPORT
+// ────────────────────────────────────────────────────────────
+function exportData() {
+  try {
+    const data = { version: VERSION, exportedAt: new Date().toISOString(), items: STATE.items, shopping: STATE.shopping, settings: STATE.settings };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pantryos-export-${Utils.today()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('success','Exported!','Your data has been downloaded.');
+  } catch(e) {
+    console.error('[exportData]', e);
+    toast('error','Export Failed','Could not export data.');
+  }
+}
+
+function importData(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.name.endsWith('.json')) { toast('error','Invalid File','Please select a .json export file.'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.items || !Array.isArray(data.items)) throw new Error('Invalid format: missing items array');
+      const validItems = data.items.filter(i => Storage.validateItem(i));
+      if (validItems.length !== data.items.length) toast('warning','Partial Import',`${data.items.length - validItems.length} invalid items were skipped.`);
+      STATE.items = validItems;
+      STATE.shopping = (data.shopping||[]).filter(i => Storage.validateShopItem(i));
+      if (data.settings) Object.assign(STATE.settings, data.settings);
+      Storage.save(); Storage.saveSettings(); loadSettings(); renderAll();
+      toast('success','Imported!',`${validItems.length} items restored.`);
+    } catch(err) {
+      console.error('[importData]', err);
+      toast('error','Import Failed', err instanceof SyntaxError ? 'File is not valid JSON.' : err.message);
+    }
+  };
+  reader.onerror = () => toast('error','Read Error','Could not read file.');
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function confirmClearData() {
+  confirmAction('Clear All Data?','This will permanently delete ALL grocery data and shopping lists. This cannot be undone.', () => {
+    STATE.items = [];
+    STATE.shopping = [];
+    Storage.save();
+    renderAll();
+    toast('success','Cleared','All data has been removed.');
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// MODAL HELPERS
+// ────────────────────────────────────────────────────────────
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(overlay.id); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
+});
+
+function confirmAction(title, msg, callback) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.onclick = () => { callback(); closeModal('confirm-modal'); };
+  openModal('confirm-modal');
+}
+
+// ────────────────────────────────────────────────────────────
+// TOAST NOTIFICATIONS
+// ────────────────────────────────────────────────────────────
+const TOAST_ICONS = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+const toastQueue = [];
+let toastCount = 0;
+
+function toast(type, title, msg, duration = 4500) {
+  // Queue management - max 4 toasts
+  if (toastCount >= 4) return;
+  toastCount++;
+  const id = 'toast-' + Date.now();
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.id = id;
+  el.innerHTML = `
+    <span class="toast-icon">${TOAST_ICONS[type]||'ℹ️'}</span>
+    <div class="toast-body">
+      <div class="toast-title">${Utils.sanitize(title)}</div>
+      ${msg ? `<div class="toast-msg">${Utils.sanitize(msg)}</div>` : ''}
+    </div>
+    <button class="toast-close" onclick="removeToast('${id}')">✕</button>
+  `;
+  container.appendChild(el);
+  setTimeout(() => removeToast(id), duration);
+}
+
+function removeToast(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('removing');
+  setTimeout(() => { el.remove(); toastCount = Math.max(0, toastCount-1); }, 280);
+}
+
+// ────────────────────────────────────────────────────────────
+// SERVICE WORKER
+// ────────────────────────────────────────────────────────────
+function registerSW() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(() => console.log('[PWA] Service Worker registered'))
+      .catch(e => console.warn('[PWA] SW registration failed:', e.message));
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// DAILY EXPIRY CHECK
+// ────────────────────────────────────────────────────────────
+function runDailyExpiryCheck() {
+  if (!STATE.settings.notif) return;
+  const urgent = STATE.items.filter(i => {
+    const d = Utils.daysUntilExpiry(i.expiryDate);
+    return d !== null && d >= 0 && d <= STATE.settings.warnDays;
+  });
+  if (urgent.length && 'Notification' in window && Notification.permission === 'granted') {
+    new Notification(`PantryOS — ${urgent.length} items expiring soon`, {
+      body: urgent.slice(0,3).map(i => i.name).join(', ') + (urgent.length > 3 ? '...' : ''),
+      icon: 'icons/icon-192.png'
+    });
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────────────────────────
+function init() {
+  try {
+    Storage.load();
+    loadSettings();
+    
+    // Init date pickers with defaults
+    const today = Utils.today();
+    const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+    const el1 = document.getElementById('date-from');
+    const el2 = document.getElementById('date-to');
+    if (el1) el1.value = thirtyDaysAgo.toISOString().split('T')[0];
+    if (el2) el2.value = today;
+    
+    // Load saved Firebase config
+    const savedConfig = localStorage.getItem('pantryos_firebase_config');
+    if (savedConfig) {
+      const el = document.getElementById('firebase-config-input');
+      if (el) el.value = savedConfig;
+    }
+    
+    renderAll();
+    registerSW();
+    
+    // Run expiry check after 2 seconds
+    setTimeout(runDailyExpiryCheck, 2000);
+    
+    // Check every hour
+    setInterval(() => { renderWarnings(); updateBadges(); }, 3600000);
+    
+    console.log(`[PantryOS ${VERSION}] Initialized with ${STATE.items.length} items`);
+  } catch(e) {
+    console.error('[Init error]', e);
+    toast('error','Startup Error','Application failed to initialize properly.');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+flask-sqlalchemy>=3.1.0
+
+# Server-side OCR (optional but recommended)
+pytesseract>=0.3.10
+Pillow>=10.0.0
+
+# Production server
+gunicorn>=21.0.0
+
+# Development
+python-dotenv>=1.0.0
