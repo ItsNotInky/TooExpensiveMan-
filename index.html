@@ -617,25 +617,37 @@ h3{font-size:15px;font-weight:600;color:var(--text-1)}
   background:var(--bg-1);
   border-top:1px solid var(--border-1);
   z-index:100;
-  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+  padding:6px 0 max(6px,env(safe-area-inset-bottom));
   backdrop-filter:blur(20px);
   -webkit-backdrop-filter:blur(20px);
+  overflow:hidden;
 }
-.bottom-nav-items{display:flex;justify-content:space-around;width:100%}
+.bottom-nav-items{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  width:100%;
+  padding:0 4px;
+}
 .bottom-nav-item{
-  display:flex;flex-direction:column;align-items:center;gap:2px;
+  display:flex;flex-direction:column;align-items:center;gap:1px;
   cursor:pointer;color:var(--text-3);
   border-radius:var(--radius-sm);
   transition:color var(--transition);
   position:relative;
+  flex:1;
+  min-width:0;
+  padding:4px 2px;
 }
 .bottom-nav-item.active{color:var(--accent)}
+.bottom-nav-item .nav-icon{font-size:clamp(16px,5vw,22px);line-height:1}
+.bottom-nav-label{font-size:clamp(7px,2.5vw,10px);font-weight:600;letter-spacing:0.02em;white-space:nowrap}
 .bottom-badge{
-  position:absolute;top:4px;right:8px;
+  position:absolute;top:2px;right:4px;
   background:var(--danger);color:#fff;
   font-size:9px;font-family:var(--font-mono);
-  padding:1px 5px;border-radius:100px;
-  min-width:16px;text-align:center;
+  padding:1px 4px;border-radius:100px;
+  min-width:14px;text-align:center;
 }
 
 /* ─── FLUID TYPOGRAPHY ───────────────────────────────────────────── */
@@ -808,15 +820,7 @@ h3   { font-size: var(--text-md)  !important; }
   .bottom-nav-item .nav-icon { font-size: 22px; }
 }
 
-/* ── Bottom nav proportional sizing ──────────────────────────────── */
-.bottom-nav-item {
-  min-width: 0;
-  flex: 1;
-  padding: clamp(4px, 1.2vw, 8px) clamp(4px, 1vw, 6px);
-}
-.bottom-nav-item .nav-icon  { font-size: clamp(18px, 5vw, 22px); }
-.bottom-nav-label           { font-size: clamp(8px, 2.2vw, 10px); }
-#bottom-nav                 { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+/* safe area handled above */
 
 /* ── Safe area padding for notched phones ────────────────────────── */
 @supports (padding: max(0px)) {
