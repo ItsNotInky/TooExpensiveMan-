@@ -1,5 +1,5 @@
-// PantryOS Service Worker v2.0
-const CACHE_NAME = 'pantryos-v2';
+// PantryOS Service Worker v3
+const CACHE_NAME = 'pantryos-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
