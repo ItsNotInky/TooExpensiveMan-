@@ -1434,11 +1434,14 @@ const Storage = {
     if (!STATE.firestore) return;
     try {
       const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
-      const uid = STATE.firebase.userId || 'default';
+      const uid = STATE.firebase?.userId || 'default';
+      const now = new Date().toISOString();
+      STATE._lastSyncAt = now;
       await setDoc(doc(STATE.firestore, 'pantry', uid), {
-        items: STATE.items,
-        shopping: STATE.shopping,
-        updatedAt: new Date().toISOString()
+        items:     STATE.items,
+        shopping:  STATE.shopping,
+        settings:  STATE.settings,  // sync settings across devices
+        updatedAt: now
       });
     } catch(e) {
       console.error('[Firebase sync]', e);
@@ -2381,6 +2384,7 @@ function saveSettings() {
   STATE.settings.warnDays = parseInt(document.getElementById('warn-days')?.value) || 3;
   STATE.settings.currency = document.getElementById('currency-select')?.value || '$';
   Storage.saveSettings();
+  Storage.syncFirebase(); // push settings change to all devices
 }
 
 async function requestNotifPermission() {
@@ -2412,31 +2416,71 @@ async function initFirebase() {
     const required = ['apiKey','authDomain','projectId'];
     const missing = required.filter(k => !config[k]);
     if (missing.length) { toast('error','Invalid Config',`Missing fields: ${missing.join(', ')}`); return; }
-    
+
     setFirebaseStatus('connecting');
-    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
-    const { getFirestore, doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
-    
-    const app = initializeApp(config);
+    const { initializeApp, getApps } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
+    const { getFirestore, doc, setDoc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+
+    // Avoid duplicate Firebase app init on reconnect
+    const app = getApps().length ? getApps()[0] : initializeApp(config);
     STATE.firestore = getFirestore(app);
     STATE.firebase = { userId: 'default', app };
-    
-    // Try to load data from cloud
+
     const ref = doc(STATE.firestore, 'pantry', 'default');
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data.items?.length) { STATE.items = data.items; Storage.save(); }
-      if (data.shopping?.length) { STATE.shopping = data.shopping; Storage.save(); }
-      toast('success','Synced!','Data loaded from Firebase.');
-    } else {
-      await setDoc(ref, { items: STATE.items, shopping: STATE.shopping, updatedAt: new Date().toISOString() });
-      toast('success','Connected!','Firebase connected. Data will sync automatically.');
-    }
-    
+
+    // ── Real-time listener ──────────────────────────────────────────
+    // Fires immediately on connect AND whenever any device saves a change.
+    // This means all devices (PC, phone, tablet) are always in sync.
+    let firstLoad = true;
+    if (STATE.firebase.unsubscribe) STATE.firebase.unsubscribe(); // clean up old listener
+
+    STATE.firebase.unsubscribe = onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const cloudTime = new Date(data.updatedAt || 0).getTime();
+        const localTime  = new Date(STATE._lastSyncAt || 0).getTime();
+
+        if (cloudTime > localTime || firstLoad) {
+          // Update items & shopping
+          if (data.items)    STATE.items    = data.items;
+          if (data.shopping) STATE.shopping = data.shopping;
+
+          // Update settings from cloud — keeps all devices identical
+          if (data.settings) {
+            Object.assign(STATE.settings, data.settings);
+            Storage.saveSettings();
+            loadSettings();
+          }
+
+          STATE._lastSyncAt = data.updatedAt;
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE.items));
+            localStorage.setItem(SHOP_KEY,    JSON.stringify(STATE.shopping));
+          } catch(e) {}
+          renderAll();
+          if (!firstLoad) toast('info', '🔄 Synced', 'Changes from another device applied.');
+        }
+        firstLoad = false;
+      } else {
+        // Nothing in cloud yet — push everything up including settings
+        setDoc(ref, {
+          items:     STATE.items,
+          shopping:  STATE.shopping,
+          settings:  STATE.settings,
+          updatedAt: new Date().toISOString()
+        });
+        firstLoad = false;
+      }
+    }, (err) => {
+      console.error('[Firebase listener]', err);
+      setFirebaseStatus('error');
+      toast('error', 'Sync Error', err.message.slice(0, 80));
+    });
+
     setFirebaseStatus('connected');
     localStorage.setItem('pantryos_firebase_config', configEl.value);
-    renderAll();
+    toast('success', '☁ Connected!', 'Real-time sync active — all devices stay in sync instantly.');
+
   } catch(e) {
     console.error('[Firebase init]', e);
     setFirebaseStatus('error');
