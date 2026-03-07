@@ -650,183 +650,31 @@ h3{font-size:15px;font-weight:600;color:var(--text-1)}
   min-width:14px;text-align:center;
 }
 
-/* ─── FLUID TYPOGRAPHY ───────────────────────────────────────────── */
-/* clamp(min, preferred, max) — scales smoothly between breakpoints  */
-:root {
-  --text-xs:   clamp(9px,  1.8vw, 11px);
-  --text-sm:   clamp(11px, 2vw,   13px);
-  --text-base: clamp(12px, 2.2vw, 15px);
-  --text-md:   clamp(13px, 2.4vw, 16px);
-  --text-lg:   clamp(16px, 3vw,   20px);
-  --text-xl:   clamp(18px, 3.5vw, 24px);
-  --text-2xl:  clamp(20px, 4vw,   28px);
-  --text-3xl:  clamp(22px, 5vw,   32px);
-
-  /* Fluid spacing */
-  --space-xs:  clamp(4px,  1vw,   8px);
-  --space-sm:  clamp(8px,  1.5vw, 14px);
-  --space-md:  clamp(12px, 2vw,   20px);
-  --space-lg:  clamp(16px, 3vw,   28px);
-  --space-xl:  clamp(20px, 4vw,   36px);
-
-  /* Fluid padding for views */
-  --view-pad-x: clamp(12px, 4vw, 36px);
-  --view-pad-y: clamp(14px, 3vw, 32px);
-
-  /* Fluid sidebar */
-  --sidebar-w: clamp(56px, 5vw, 68px);
-
-  /* Fluid bottom nav height */
-  --nav-h: clamp(56px, 8vh, 70px);
+/* ─── RESPONSIVE ─────────────────────────────────────────────────── */
+@media(max-width:768px){
+  #sidebar{display:none}
+  #bottom-nav{display:block}
+  #main{margin-left:0;padding-bottom:80px;padding-top:env(safe-area-inset-top,0px)}
+  .view{padding:20px 16px}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:12px}
+  .stat-value{font-size:26px}
+  .item-right{gap:12px}
+  .item-actions{opacity:1}
+  .page-header{margin-bottom:20px}
+  h1{font-size:22px}
+  .form-grid{grid-template-columns:1fr}
+  .modal{padding:20px}
+  #toast-container{bottom:90px;right:16px;left:16px}
+  .toast{min-width:unset}
+  .chart-wrap{height:220px}
 }
-
-body { font-size: var(--text-base); }
-h1   { font-size: var(--text-2xl) !important; }
-h2   { font-size: var(--text-xl)  !important; }
-h3   { font-size: var(--text-md)  !important; }
-
-/* ─── FLUID LAYOUT COMPONENTS ───────────────────────────────────── */
-.view          { padding: var(--view-pad-y) var(--view-pad-x) !important; }
-.page-header   { margin-bottom: var(--space-lg); }
-.stats-grid    { gap: var(--space-sm); }
-.stat-value    { font-size: clamp(22px, 4vw, 32px) !important; }
-.stat-label    { font-size: var(--text-xs); }
-.stat-meta     { font-size: var(--text-xs); }
-.card          { padding: var(--space-lg); }
-.item-card     { padding: clamp(10px,1.5vw,16px) clamp(12px,2vw,20px); gap: clamp(8px,1.5vw,16px); }
-.item-name     { font-size: var(--text-sm); }
-.item-price    { font-size: clamp(13px,2vw,16px); }
-.expiry-days   { font-size: clamp(14px,2.5vw,20px); }
-.expiry-label  { font-size: var(--text-xs); }
-.btn           { font-size: var(--text-sm); padding: clamp(7px,1vw,10px) clamp(12px,1.5vw,18px); }
-.btn-sm        { font-size: var(--text-xs); padding: clamp(5px,0.8vw,7px) clamp(8px,1.2vw,13px); }
-.input,.select,.textarea { font-size: var(--text-sm); padding: clamp(8px,1vw,10px) clamp(10px,1.2vw,14px); }
-.form-label    { font-size: var(--text-xs); }
-.chip          { font-size: var(--text-xs); padding: clamp(3px,0.5vw,5px) clamp(8px,1.2vw,12px); }
-.total-amount  { font-size: clamp(18px,3vw,24px); }
-.chart-wrap    { height: clamp(160px, 28vw, 280px); }
-.modal         { padding: var(--space-xl); }
-.page-subtitle { font-size: var(--text-xs); }
-
-/* ─── SIDEBAR — fluid collapsed width ───────────────────────────── */
-#sidebar {
-  width: var(--sidebar-w);
-  min-height: 100vh;
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .item-card{padding:12px 14px;gap:10px}
+  .expiry-days{font-size:16px}
 }
-#main { margin-left: var(--sidebar-w); }
-.sidebar-logo { width: clamp(32px,4vw,40px); height: clamp(32px,4vw,40px); font-size: clamp(16px,2.5vw,20px); }
-.nav-icon { font-size: clamp(16px,2.2vw,20px); }
-
-/* ─── BOTTOM NAV — always hidden on desktop ──────────────────────── */
-#bottom-nav { display: none; }
-
-/* ─── STATS GRID — fluid columns ────────────────────────────────── */
-.stats-grid {
-  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 22vw, 200px), 1fr));
-}
-
-/* ─── DASHBOARD GRID ─────────────────────────────────────────────── */
-.dash-grid {
-  grid-template-columns: repeat(auto-fill, minmax(clamp(280px, 40vw, 500px), 1fr));
-  gap: var(--space-md);
-}
-.dash-grid .card  { grid-column: unset; }
-.dash-recent      { grid-column: unset; }
-
-/* ─── FORM GRID ──────────────────────────────────────────────────── */
-.form-grid {
-  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 22vw, 180px), 1fr));
-  gap: var(--space-md);
-}
-
-/* ─── ANALYTICS CHART GRID ───────────────────────────────────────── */
-#view-analytics > div:last-child {
-  grid-template-columns: repeat(auto-fill, minmax(clamp(240px,35vw,400px),1fr));
-}
-
-/* ══════════════════════════════════════════════════════════════
-   BREAKPOINTS — ordered large → small
-   Each step only adjusts what changes at that size
-   ══════════════════════════════════════════════════════════════ */
-
-/* ── Large tablets / small laptops (≤1180px) ── */
-@media (max-width: 1180px) {
-  :root { --sidebar-w: 60px; }
-}
-
-/* ── Tablets landscape / iPad Pro (≤1024px) ── */
-@media (max-width: 1024px) {
-  #sidebar     { display: none; }
-  #bottom-nav  { display: block; }
-  #main        { margin-left: 0; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); }
-  #toast-container { bottom: calc(var(--nav-h) + 12px); right: 16px; left: 16px; }
-  .toast       { min-width: unset; }
-  .item-actions { opacity: 1; }
-}
-
-/* ── Tablets portrait / iPad (≤820px) ── */
-@media (max-width: 820px) {
-  .stats-grid  { grid-template-columns: repeat(2, 1fr); }
-  .form-grid   { grid-template-columns: repeat(2, 1fr); }
-  #view-analytics > div:last-child { grid-template-columns: 1fr; }
-  .inventory-controls { flex-wrap: wrap; }
-  .page-header { flex-wrap: wrap; gap: var(--space-sm); }
-}
-
-/* ── Large phones landscape / small tablets (≤680px) ── */
-@media (max-width: 680px) {
-  .dash-grid   { grid-template-columns: 1fr; }
-  .form-grid   { grid-template-columns: 1fr 1fr; }
-  .chart-wrap  { height: clamp(150px, 40vw, 220px); }
-  .modal       { padding: var(--space-lg); border-radius: var(--radius); }
-  .period-tabs { flex-wrap: wrap; }
-}
-
-/* ── Standard phones (≤480px) ── */
-@media (max-width: 480px) {
-  .stats-grid  { grid-template-columns: 1fr 1fr; }
-  .form-grid   { grid-template-columns: 1fr; }
-  .item-right  { gap: clamp(6px,2vw,12px); }
-  .item-tag    { display: none; }
-  .item-tag.category { display: inline; }
-  .chart-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-  #view-analytics .page-header > div:last-child { flex-wrap: wrap; }
-}
-
-/* ── Small phones: iPhone SE, Galaxy A series (≤390px) ── */
-@media (max-width: 390px) {
-  :root {
-    --view-pad-x: 10px;
-    --view-pad-y: 12px;
-    --nav-h: 58px;
-  }
-  .stats-grid  { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .stat-card   { padding: 12px; }
-  .item-card   { gap: 8px; padding: 10px 12px; }
-  .item-emoji  { font-size: 18px; width: 26px; }
-  .btn         { padding: 6px 10px; }
-  .modal       { padding: 16px; }
-  h1           { font-size: clamp(17px,5vw,22px) !important; }
-  .bottom-nav-item { min-width: 36px; padding: 4px; }
-  .bottom-nav-label { font-size: 8px; }
-}
-
-/* ── Very small / old phones (≤320px) ── */
-@media (max-width: 320px) {
-  :root { --view-pad-x: 8px; --view-pad-y: 10px; }
-  .stats-grid  { grid-template-columns: 1fr; }
-  .item-right  { flex-direction: column; align-items: flex-end; gap: 4px; }
-  .bottom-nav-label { display: none; }
-  .bottom-nav-item .nav-icon { font-size: 22px; }
-}
-
-/* safe area handled above */
-
-/* ── Safe area padding for notched phones ────────────────────────── */
-@supports (padding: max(0px)) {
-  #bottom-nav { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
-  #main       { padding-left:  env(safe-area-inset-left);
-                padding-right: env(safe-area-inset-right); }
+@supports(padding:max(0px)){
+  #bottom-nav{padding-bottom:max(8px,env(safe-area-inset-bottom))}
 }
 
 /* ─── CATEGORY COLORS ────────────────────────────────────────────── */
@@ -866,6 +714,44 @@ h3   { font-size: var(--text-md)  !important; }
 }
 .total-label{font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-3)}
 .total-amount{font-size:24px;font-weight:800;font-family:var(--font-mono);color:var(--accent)}
+/* ─── FLOATING ACTION BUTTON ─────────────────────────────────────── */
+/* hide header Add Item button on all screens */
+.header-add-btn { display: none !important; }
+
+/* FAB — visible on all screen sizes */
+#fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 99;
+  box-shadow: 0 4px 20px rgba(0,212,177,0.4), 0 2px 8px rgba(0,0,0,0.5);
+  font-size: 28px;
+  font-weight: 300;
+  color: #07070c;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+#fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 28px rgba(0,212,177,0.55), 0 2px 8px rgba(0,0,0,0.5);
+}
+#fab:active {
+  transform: scale(0.93);
+  box-shadow: 0 2px 10px rgba(0,212,177,0.3);
+}
+/* on mobile, sit above the bottom nav */
+@media(max-width:768px){
+  #fab { bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 12px); }
+}
 </style>
 </head>
 <body>
@@ -914,7 +800,7 @@ h3   { font-size: var(--text-md)  !important; }
       <h1>Dashboard</h1>
       <span class="page-subtitle mono" id="dash-date">Loading...</span>
     </div>
-    <button class="btn btn-primary" onclick="openAddModal()">+ Add Item</button>
+    <button class="btn btn-primary header-add-btn" onclick="openAddModal()">+ Add Item</button>
   </div>
   <div id="warnings-container"></div>
   <div class="stats-grid" id="stats-grid">
@@ -944,7 +830,7 @@ h3   { font-size: var(--text-md)  !important; }
     </div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost btn-sm" onclick="exportData()">⬇ Export</button>
-      <button class="btn btn-primary" onclick="openAddModal()">+ Add Item</button>
+      <button class="btn btn-primary header-add-btn" onclick="openAddModal()">+ Add Item</button>
     </div>
   </div>
   <div class="inventory-controls">
@@ -1018,7 +904,7 @@ h3   { font-size: var(--text-md)  !important; }
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost btn-sm" onclick="clearChecked()">Clear Checked</button>
       <button class="btn btn-ghost btn-sm" onclick="autoGenerateList()">✨ Auto-Generate</button>
-      <button class="btn btn-primary" onclick="openAddShopModal()">+ Add Item</button>
+      <button class="btn btn-primary header-add-btn" onclick="openAddShopModal()">+ Add Item</button>
     </div>
   </div>
   <div id="auto-suggest" style="margin-bottom:20px"></div>
@@ -1150,6 +1036,9 @@ h3   { font-size: var(--text-md)  !important; }
 </section>
 </main>
 </div>
+
+<!-- FLOATING ACTION BUTTON (mobile only) -->
+<button id="fab" onclick="fabAction()" aria-label="Add item">＋</button>
 
 <!-- BOTTOM NAV -->
 <nav id="bottom-nav">
@@ -1516,6 +1405,13 @@ function navigate(view) {
   if (view === 'dashboard') { renderDashboard(); }
   if (view === 'inventory') { renderInventory(); }
   if (view === 'shopping') { renderShoppingList(); }
+
+  // Show FAB only on views where adding makes sense
+  const fab = document.getElementById('fab');
+  if (fab) {
+    const hideFab = ['analytics','scan','settings'].includes(view);
+    fab.style.display = hideFab ? 'none' : '';
+  }
 }
 document.querySelectorAll('[data-view]').forEach(el => {
   el.addEventListener('click', () => navigate(el.dataset.view));
@@ -1803,6 +1699,15 @@ function renderItemCard(item) {
 // ────────────────────────────────────────────────────────────
 // ADD / EDIT MODAL
 // ────────────────────────────────────────────────────────────
+// FAB — opens the right modal depending on current view
+function fabAction() {
+  if (STATE.currentView === 'shopping') {
+    openAddShopModal();
+  } else {
+    openAddModal();
+  }
+}
+
 function openAddModal() {
   STATE.editingId = null;
   document.getElementById('modal-title').textContent = 'Add Item';
